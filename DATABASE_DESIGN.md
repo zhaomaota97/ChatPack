@@ -65,19 +65,6 @@ CREATE TYPE wordbook_level AS ENUM (
 );
 ```
 
-### 4. room_environment - 聊天室环境
-
-```sql
-CREATE TYPE room_environment AS ENUM (
-  'PRIMARY',      -- 小学环境
-  'MIDDLE',       -- 初中环境
-  'HIGH',         -- 高中环境
-  'CET4',         -- 四级环境
-  'CET6',         -- 六级环境
-  'POSTGRADUATE'  -- 考研环境
-);
-```
-
 ---
 
 ## 核心表结构
@@ -241,32 +228,52 @@ CREATE INDEX idx_user_words_favorited ON user_words(user_id, is_favorited);
 
 ### 6. packs - 卡包表
 
-卡包类型定义（按稀有度分类）。
+卡包类型定义（分为普通卡包和特殊卡包）。
 
 ```sql
+CREATE TYPE pack_type AS ENUM ('NORMAL', 'SPECIAL');
+
 CREATE TABLE packs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(100) NOT NULL,
   description TEXT,
   card_count INTEGER NOT NULL DEFAULT 5,          -- 每包卡片数量（默认5张）
   
-  -- 卡包限定的稀有度（只开出该稀有度的单词）
-  rarity_type rarity NOT NULL,                    -- 卡包稀有度类型
+  -- 卡包类型
+  pack_type pack_type NOT NULL DEFAULT 'SPECIAL', -- NORMAL: 普通卡包, SPECIAL: 特殊卡包
+  
+  -- 卡包限定的稀有度（仅特殊卡包使用，普通卡包此字段可为NULL）
+  rarity_type rarity,                             -- 特殊卡包的稀有度类型
+  
+  -- 普通卡包的稀有度权重配置（JSON格式，仅普通卡包使用）
+  rarity_weights JSONB,                           -- 例: {"COMMON": 60, "RARE": 30, "EPIC": 8, "LEGENDARY": 2}
   
   is_active BOOLEAN DEFAULT true NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   
-  UNIQUE(rarity_type)
+  -- 特殊卡包的rarity_type必须唯一
+  UNIQUE(rarity_type),
+  
+  -- 约束：特殊卡包必须有rarity_type，普通卡包必须有rarity_weights
+  CHECK (
+    (pack_type = 'SPECIAL' AND rarity_type IS NOT NULL AND rarity_weights IS NULL) OR
+    (pack_type = 'NORMAL' AND rarity_type IS NULL AND rarity_weights IS NOT NULL)
+  )
 );
 
 CREATE INDEX idx_packs_active ON packs(is_active);
+CREATE INDEX idx_packs_type ON packs(pack_type);
 CREATE INDEX idx_packs_rarity ON packs(rarity_type);
 ```
 
 **字段说明:**
+- `pack_type`: 卡包类型
+  - `NORMAL`: 普通卡包，能开出所有稀有度的单词，越稀有的越难开出（通过rarity_weights控制概率）
+  - `SPECIAL`: 特殊卡包，只能开出对应稀有度的单词（如稀有卡包、传说卡包等）
 - `card_count`: 每次开包获得的卡片数量
-- `rarity_weights`: JSON格式的稀有度权重配置
-- `max_wordbook_level`: 限制开包范围的最高等级
+- `rarity_type`: 特殊卡包限定的稀有度（仅SPECIAL类型使用）
+- `rarity_weights`: 普通卡包的稀有度权重配置，JSON格式（仅NORMAL类型使用）
+  - 例如: `{"COMMON": 60, "RARE": 30, "EPIC": 8, "LEGENDARY": 2}` 表示普通60%、稀有30%、史诗8%、传说2%的概率
 
 ### 7. user_packs - 用户卡包库存表
 
@@ -289,30 +296,57 @@ CREATE INDEX idx_user_packs_user ON user_packs(user_id);
 
 ### 8. chat_rooms - 聊天室表
 
-聊天室定义（管理员可动态管理）。
+聊天室定义（管理员通过后台配置管理）。
 
 ```sql
 CREATE TABLE chat_rooms (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(100) NOT NULL,
-  environment room_environment NOT NULL,          -- 聊天室环境等级
   description TEXT,
   is_active BOOLEAN DEFAULT true NOT NULL,
   
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  
-  UNIQUE(environment)
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_chat_rooms_environment ON chat_rooms(environment);
+CREATE INDEX idx_chat_rooms_active ON chat_rooms(is_active);
 ```
 
 **字段说明:**
-- `name`: 聊天室名称（管理员可自定义）
-- `environment`: 聊天室环境等级，决定可用单词范围（对应单词书等级）
+- `name`: 聊天室名称（管理员可自定义，如"小学乐园"、"考研专区"等）
 - `description`: 聊天室描述（管理员可自定义）
-- 每个环境等级只有一个聊天室
-- 管理员可以在后台页面修改名称、描述，启用/禁用聊天室
+- `is_active`: 是否启用该聊天室
+
+**管理规则:**
+- 聊天室在后台页面配置，管理员可自由创建任意名称和描述的聊天室
+- 聊天室通过 `chat_room_wordbooks` 中间表关联单词书，决定可用单词范围
+- 用户在聊天室中只能发送该聊天室关联的单词书中包含的单词
+- 管理员可以对聊天室进行完整的增删改查操作：
+  - **创建**: 创建聊天室并配置关联的单词书
+  - **修改**: 更新名称、描述、启用状态、关联的单词书
+  - **删除**: 删除聊天室及其所有消息记录和关联关系
+  - **查询**: 查看所有聊天室列表及其关联的单词书
+
+### 8.1. chat_room_wordbooks - 聊天室单词书关联表
+
+定义聊天室可使用的单词书范围。
+
+```sql
+CREATE TABLE chat_room_wordbooks (
+  room_id UUID NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+  wordbook_id UUID NOT NULL REFERENCES wordbooks(id) ON DELETE CASCADE,
+  
+  PRIMARY KEY (room_id, wordbook_id)
+);
+
+CREATE INDEX idx_chat_room_wordbooks_room ON chat_room_wordbooks(room_id);
+CREATE INDEX idx_chat_room_wordbooks_wordbook ON chat_room_wordbooks(wordbook_id);
+```
+
+**字段说明:**
+- `room_id`: 聊天室ID
+- `wordbook_id`: 单词书ID
+- 一个聊天室可以关联多个单词书
+- 用户在聊天室发送消息时，单词必须属于该聊天室关联的任意一个单词书
 
 ### 9. messages - 消息表
 
@@ -430,35 +464,73 @@ $$ LANGUAGE plpgsql;
 
 ### 3. draw_words_from_pack() - 开卡包抽取单词
 
-从卡包中随机抽取指定稀有度的单词。
+从卡包中按配置的概率随机抽取单词。
+
+**参数说明:**
+- `p_user_id`: 用户ID
+- `p_pack_id`: 卡包ID（用于后续扩展，如记录开包日志）
+- `p_card_count`: 抽取数量（对应 packs 表的 `card_count` 字段，固定为5）
+- `p_rarity_weights`: 稀有度权重配置（对应 packs 表的 `rarity_weights` 字段）
 
 ```sql
 CREATE OR REPLACE FUNCTION draw_words_from_pack(
   p_user_id UUID,
   p_pack_id UUID,
   p_card_count INTEGER,
-  p_rarity_type rarity
+  p_rarity_weights JSONB
 )
 RETURNS TABLE(word_id UUID, word TEXT, definition TEXT, rarity rarity, is_new BOOLEAN) AS $$
 DECLARE
   drawn_word_ids UUID[];
+  v_rarity rarity;
+  i INTEGER;
 BEGIN
-  -- 根据卡包稀有度类型，随机抽取对应稀有度的单词
-  -- 只抽取用户未拥有的单词
-  SELECT ARRAY_AGG(w.id) INTO drawn_word_ids
-  FROM (
-    SELECT w.id
-    FROM words w
-    WHERE w.rarity = p_rarity_type
-      AND NOT EXISTS (
-        SELECT 1 FROM user_words uw
-        WHERE uw.user_id = p_user_id AND uw.word_id = w.id
-      )
-    ORDER BY RANDOM()
-    LIMIT p_card_count
-  ) subq;
+  drawn_word_ids := ARRAY[]::UUID[];
   
-  -- 如果没有足够的新单词，返回空
+  -- 按权重随机抽取各稀有度的单词
+  FOR i IN 1..p_card_count LOOP
+    -- 根据权重随机决定稀有度
+    WITH weighted_rarities AS (
+      SELECT 
+        unnest(ARRAY['COMMON', 'RARE', 'EPIC', 'LEGENDARY']::rarity[]) as rarity_val,
+        unnest(ARRAY[
+          (p_rarity_weights->>'COMMON')::INTEGER,
+          (p_rarity_weights->>'RARE')::INTEGER,
+          (p_rarity_weights->>'EPIC')::INTEGER,
+          (p_rarity_weights->>'LEGENDARY')::INTEGER
+        ]) as weight
+    ),
+    cumulative_weights AS (
+      SELECT 
+        rarity_val,
+        SUM(weight) OVER (ORDER BY rarity_val) as cumsum,
+        SUM(weight) OVER () as total
+      FROM weighted_rarities
+    )
+    SELECT rarity_val INTO v_rarity
+    FROM cumulative_weights
+    WHERE (RANDOM() * total) <= cumsum
+    ORDER BY cumsum
+    LIMIT 1;
+    
+    -- 抽取该稀有度的单词
+    WITH selected_word AS (
+      SELECT w.id
+      FROM words w
+      WHERE w.rarity = v_rarity
+        AND NOT EXISTS (
+          SELECT 1 FROM user_words uw
+          WHERE uw.user_id = p_user_id AND uw.word_id = w.id
+        )
+        AND w.id != ALL(drawn_word_ids) -- 避免本次抽取重复
+      ORDER BY RANDOM()
+      LIMIT 1
+    )
+    SELECT ARRAY_APPEND(drawn_word_ids, sw.id) INTO drawn_word_ids
+    FROM selected_word sw;
+  END LOOP;
+  
+  -- 如果没有抽到单词，返回空
   IF drawn_word_ids IS NULL OR ARRAY_LENGTH(drawn_word_ids, 1) = 0 THEN
     RETURN;
   END IF;

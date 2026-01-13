@@ -641,34 +641,61 @@
   "data": [
     {
       "id": "uuid",
-      "name": "普通卡包",
-      "description": "包含10张普通稀有度单词卡片",
-      "cardCount": 10,
-      "rarityType": "COMMON"
+      "name": "卡包",
+      "description": "包含5张单词卡片，越稀有的越难开出",
+      "cardCount": 5,
+      "rarityWeights": {
+        "COMMON": 60,
+        "RARE": 30,
+        "EPIC": 8,
+        "LEGENDARY": 2
+      }
     },
     {
       "id": "uuid",
       "name": "稀有卡包",
-      "description": "包含10张稀有稀有度单词卡片",
-      "cardCount": 10,
-      "rarityType": "RARE"
+      "description": "包含5张稀有稀有度单词卡片",
+      "cardCount": 5,
+      "rarityWeights": {
+        "COMMON": 0,
+        "RARE": 100,
+        "EPIC": 0,
+        "LEGENDARY": 0
+      }
     },
     {
       "id": "uuid",
       "name": "史诗卡包",
-      "description": "包含10张史诗稀有度单词卡片",
-      "cardCount": 10,
-      "rarityType": "EPIC"
+      "description": "包含5张史诗稀有度单词卡片",
+      "cardCount": 5,
+      "rarityWeights": {
+        "COMMON": 0,
+        "RARE": 0,
+        "EPIC": 100,
+        "LEGENDARY": 0
+      }
     },
     {
       "id": "uuid",
       "name": "传说卡包",
-      "description": "包含10张传说稀有度单词卡片",
-      "cardCount": 10,
-      "rarityType": "LEGENDARY"
+      "description": "包含5张传说稀有度单词卡片",
+      "cardCount": 5,
+      "rarityWeights": {
+        "COMMON": 0,
+        "RARE": 0,
+        "EPIC": 0,
+        "LEGENDARY": 100
+      }
     }
   ]
 }
+```
+
+**字段说明:**
+- `cardCount`: 每包固定包含5张卡片
+- `rarityWeights`: 各稀有度的抽取权重，总和为100
+  - 普通卡包：配置不同权重，实现越稀有越难抽到的效果
+  - 特殊卡包：某个稀有度设为100%，其他为0%
 ```
 
 ---
@@ -763,8 +790,14 @@
     {
       "id": "uuid",
       "name": "小学乐园",
-      "environment": "PRIMARY",
       "description": "适合小学水平的聊天室",
+      "wordbooks": [
+        {
+          "id": "uuid",
+          "name": "小学词汇",
+          "level": "PRIMARY"
+        }
+      ],
       "onlineCount": 15
     }
   ]
@@ -1108,8 +1141,14 @@
     {
       "id": "uuid",
       "name": "小学乐园",
-      "environment": "PRIMARY",
       "description": "适合小学水平的聊天室",
+      "wordbooks": [
+        {
+          "id": "uuid",
+          "name": "小学词汇",
+          "level": "PRIMARY"
+        }
+      ],
       "isActive": true,
       "createdAt": "2026-01-12T00:00:00Z"
     }
@@ -1121,7 +1160,7 @@
 
 ### POST /api/admin/rooms
 
-创建新聊天室。
+创建新聊天室（后台配置）。
 
 **认证:** 需要管理员权限
 
@@ -1129,8 +1168,8 @@
 ```json
 {
   "name": "string",
-  "environment": "PRIMARY|MIDDLE|HIGH|CET4|CET6|POSTGRADUATE",
-  "description": "string"
+  "description": "string",
+  "wordbookIds": ["uuid"]  // 关联的单词书ID列表
 }
 ```
 
@@ -1144,8 +1183,11 @@
 }
 ```
 
-**错误响应:**
-- `409`: 该环境等级的聊天室已存在
+**说明:**
+- 聊天室可以配置任意名称（如"小学乐园"、"考研专区"等）
+- 通过 `wordbookIds` 关联单词书，决定该聊天室可用的单词范围
+- 用户在聊天室中只能发送关联的单词书中包含的单词
+- 可以关联多个单词书，灵活组合不同等级的单词
 
 ---
 
@@ -1163,6 +1205,7 @@
 {
   "name": "string",
   "description": "string",
+  "wordbookIds": ["uuid"],  // 更新关联的单词书
   "isActive": true
 }
 ```
@@ -1192,7 +1235,9 @@
 }
 ```
 
-**注意:** 删除聊天室会同时删除该聊天室的所有消息
+**说明:**
+- 删除聊天室会同时删除该聊天室的所有消息记录和关联关系（级联删除）
+- 聊天室列表支持完整的增删改查操作
 
 ---
 
@@ -1209,10 +1254,15 @@
   "data": [
     {
       "id": "uuid",
-      "name": "普通卡包",
-      "description": "包含5张普通稀有度单词卡片",
+      "name": "卡包",
+      "description": "包含5张单词卡片",
       "cardCount": 5,
-      "rarityType": "COMMON",
+      "rarityWeights": {
+        "COMMON": 60,
+        "RARE": 30,
+        "EPIC": 8,
+        "LEGENDARY": 2
+      },
       "isActive": true,
       "createdAt": "2026-01-12T00:00:00Z"
     }
@@ -1234,7 +1284,12 @@
   "name": "string",
   "description": "string",
   "cardCount": 5,
-  "rarityType": "COMMON|RARE|EPIC|LEGENDARY"
+  "rarityWeights": {
+    "COMMON": 60,
+    "RARE": 30,
+    "EPIC": 8,
+    "LEGENDARY": 2
+  }
 }
 ```
 
@@ -1248,8 +1303,9 @@
 }
 ```
 
-**错误响应:**
-- `409`: 该稀有度类型的卡包已存在
+**说明:**
+- `cardCount`: 固定为5张
+- `rarityWeights`: 各稀有度权重配置，权重总和建议为100
 
 ---
 
@@ -1268,6 +1324,12 @@
   "name": "string",
   "description": "string",
   "cardCount": 5,
+  "rarityWeights": {
+    "COMMON": 60,
+    "RARE": 30,
+    "EPIC": 8,
+    "LEGENDARY": 2
+  },
   "isActive": true
 }
 ```
