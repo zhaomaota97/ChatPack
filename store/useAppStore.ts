@@ -1,7 +1,11 @@
 import { create } from 'zustand'
-import { InventoryWord, Message, Word } from '@/lib/types'
+import type { User, UserWord, Message, ChatRoom, Pack, UserPack } from '@/lib/types.full'
 
 interface AppState {
+  // 用户信息
+  user: User | null
+  setUser: (user: User | null) => void
+
   // 当前激活的页面
   activePage: string
   setActivePage: (page: string) => void
@@ -10,35 +14,50 @@ interface AppState {
   isAdminMode: boolean
   setAdminMode: (isAdmin: boolean) => void
 
-  // 用户库存
-  inventory: InventoryWord[]
-  addToInventory: (word: Word) => void
+  // 用户单词库存
+  userWords: UserWord[]
+  setUserWords: (words: UserWord[]) => void
+  addUserWord: (word: UserWord) => void
 
-  // 生词本
-  notebook: InventoryWord[]
-  addToNotebook: (word: InventoryWord) => void
-  removeFromNotebook: (wordText: string) => void
+  // 用户卡包库存
+  userPacks: UserPack[]
+  setUserPacks: (packs: UserPack[]) => void
+  updatePackCount: (packId: string, count: number) => void
+
+  // 所有可用卡包
+  availablePacks: Pack[]
+  setAvailablePacks: (packs: Pack[]) => void
+
+  // 聊天室
+  rooms: ChatRoom[]
+  setRooms: (rooms: ChatRoom[]) => void
+  currentRoom: ChatRoom | null
+  setCurrentRoom: (room: ChatRoom | null) => void
 
   // 聊天消息
   messages: Message[]
+  setMessages: (messages: Message[]) => void
   addMessage: (message: Message) => void
-  currentRoom: string
-  setCurrentRoom: (room: string) => void
-
-  // 统计数据
-  totalPacks: number
-  incrementTotalPacks: () => void
+  updateMessage: (messageId: string, updates: Partial<Message>) => void
 
   // 单词详情弹窗
-  selectedWord: Word | null
-  setSelectedWord: (word: Word | null) => void
+  selectedWord: UserWord | null
+  setSelectedWord: (word: UserWord | null) => void
 
   // 后台管理页签
   activeAdminTab: string
   setActiveAdminTab: (tab: string) => void
+
+  // Loading状态
+  isLoading: boolean
+  setLoading: (loading: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  // 用户信息
+  user: null,
+  setUser: (user) => set({ user }),
+
   // 页面状态
   activePage: 'pack',
   setActivePage: (page) => set({ activePage: page }),
@@ -47,72 +66,49 @@ export const useAppStore = create<AppState>((set) => ({
   isAdminMode: false,
   setAdminMode: (isAdmin) => set({ isAdminMode: isAdmin }),
 
-  // 库存
-  inventory: [],
-  addToInventory: (word) =>
-    set((state) => {
-      // 检查是否已存在
-      if (state.inventory.find((w) => w.word === word.word)) {
-        return state
-      }
-      return {
-        inventory: [
-          ...state.inventory,
-          { ...word, favorite: false, obtainedAt: new Date() },
-        ],
-      }
-    }),
+  // 用户单词库存
+  userWords: [],
+  setUserWords: (words) => set({ userWords: words }),
+  addUserWord: (word) => set((state) => ({ userWords: [word, ...state.userWords] })),
 
-  // 生词本
-  notebook: [],
-  addToNotebook: (word) =>
-    set((state) => {
-      if (state.notebook.find((w) => w.word === word.word)) {
-        return state
-      }
-      return { notebook: [...state.notebook, word] }
-    }),
-  removeFromNotebook: (wordText) =>
-    set((state) => ({
-      notebook: state.notebook.filter((w) => w.word !== wordText),
-    })),
+  // 用户卡包库存
+  userPacks: [],
+  setUserPacks: (packs) => set({ userPacks: packs }),
+  updatePackCount: (packId, count) => set((state) => ({
+    userPacks: state.userPacks.map((p) =>
+      p.packId === packId ? { ...p, count } : p
+    ),
+  })),
 
-  // 聊天
-  messages: [
-    {
-      user: '张三',
-      text: 'Hello everyone!',
-      time: '10:00',
-      rarity: 'RARE',
-    },
-    {
-      user: '李四',
-      text: 'Good morning! How are you?',
-      time: '10:02',
-      rarity: 'COMMON',
-    },
-    {
-      user: '王五',
-      text: 'Beautiful day today!',
-      time: '10:05',
-      rarity: 'EPIC',
-    },
-  ],
-  addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
-  currentRoom: '🌱 小学乐园',
-  setCurrentRoom: (room) => set({ currentRoom: room }),
+  // 所有可用卡包
+  availablePacks: [],
+  setAvailablePacks: (packs) => set({ availablePacks: packs }),
 
-  // 统计
-  totalPacks: 0,
-  incrementTotalPacks: () =>
-    set((state) => ({ totalPacks: state.totalPacks + 1 })),
+  // 聊天室
+  rooms: [],
+  setRooms: (rooms) => set({ rooms }),
+  currentRoom: null,
+  setCurrentRoom: (room) => set({ currentRoom: room, messages: [] }),
 
-  // 单词详情
+  // 聊天消息
+  messages: [],
+  setMessages: (messages) => set({ messages }),
+  addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+  updateMessage: (messageId, updates) => set((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === messageId ? { ...m, ...updates } : m
+    ),
+  })),
+
+  // 单词详情弹窗
   selectedWord: null,
   setSelectedWord: (word) => set({ selectedWord: word }),
 
   // 后台管理
   activeAdminTab: 'dashboard',
   setActiveAdminTab: (tab) => set({ activeAdminTab: tab }),
+
+  // Loading
+  isLoading: false,
+  setLoading: (loading) => set({ isLoading: loading }),
 }))

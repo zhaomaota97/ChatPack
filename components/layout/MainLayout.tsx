@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useAppStore } from '@/store/useAppStore'
+import { useInitApp } from '@/hooks/useApp'
 import { Sidebar } from './Sidebar'
 import { AdminSidebar } from './AdminSidebar'
 import { PackPage } from '@/components/pages/PackPage'
@@ -17,9 +19,13 @@ import { AdminUsers } from '@/components/admin/AdminUsers'
 import { AdminPacks } from '@/components/admin/AdminPacks'
 import { AdminSettings } from '@/components/admin/AdminSettings'
 import { WordDetail } from '@/components/common/WordDetail'
+import { DebugPanel } from '@/components/common/DebugPanel'
 
 export function MainLayout() {
-  const { activePage, isAdminMode, activeAdminTab } = useAppStore()
+  const { activePage, isAdminMode, activeAdminTab, isLoading, user } = useAppStore()
+  
+  // 初始化应用数据
+  useInitApp()
 
   const renderUserPage = () => {
     switch (activePage) {
@@ -61,6 +67,32 @@ export function MainLayout() {
     }
   }
 
+  // 如果正在加载或没有用户信息，显示登录提示
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-2xl mb-4">🎴 ChatPack</div>
+          <div className="text-gray-600">加载中...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-3xl mb-6">🎴 ChatPack</div>
+          <div className="text-gray-600 mb-6">单词十连抽 - 游戏化学习英语</div>
+          <div className="text-sm text-gray-500">
+            请先登录。如需帮助，请查看 DEPLOYMENT.md
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="flex gap-2.5 h-[98vh] p-2.5">
@@ -70,6 +102,7 @@ export function MainLayout() {
         </div>
       </div>
       <WordDetail />
+      <DebugPanel />
     </>
   )
 }

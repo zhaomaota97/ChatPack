@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ChatPack 数据检查工具</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 50px auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .count { font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 ChatPack 数据检查工具</h1>
+    
+    <div class="section">
+        <h2>步骤 1: 检查基础数据</h2>
+        <button onclick="checkPacks()">检查卡包数据</button>
+        <button onclick="checkRooms()">检查聊天室数据</button>
+        <button onclick="checkAll()">全部检查</button>
+        <div id="basicResults"></div>
+    </div>
+    
+    <div class="section">
+        <h2>步骤 2: 检查用户数据（需要登录）</h2>
+        <button onclick="checkUser()">检查当前用户</button>
+        <button onclick="checkUserPacks()">检查用户卡包</button>
+        <button onclick="checkUserWords()">检查用户单词</button>
+        <div id="userResults"></div>
+    </div>
+    
+    <div class="section warning">
+        <h3>💡 如果看到空数据：</h3>
+        <ol>
+            <li>打开 <strong>Supabase Dashboard</strong></li>
+            <li>进入 <strong>SQL Editor</strong></li>
+            <li>复制 <code>seed_data.sql</code> 的内容</li>
+            <li>粘贴并执行</li>
+            <li>刷新此页面，重新检查</li>
+        </ol>
+    </div>
+    
+    <div class="section">
+        <h3>📊 当前状态</h3>
+        <div id="summary"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        function showResult(containerId, title, data, isSuccess) {
+            const container = document.getElementById(containerId);
+            const className = isSuccess ? 'success' : 'error';
+            let html = `<div class="${className}" style="margin-top: 10px; padding: 10px;">`;
+            html += `<strong>${title}</strong><br>`;
+            
+            if (isSuccess && data) {
+                if (Array.isArray(data)) {
+                    html += `<span class="count">数量: ${data.length}</span><br>`;
+                    if (data.length > 0) {
+                        html += `<pre>${JSON.stringify(data.slice(0, 3), null, 2)}</pre>`;
+                        if (data.length > 3) {
+                            html += `<small>... 还有 ${data.length - 3} 条</small>`;
+                        }
+                    } else {
+                        html += '<strong>⚠️ 数组为空！需要运行 seed_data.sql</strong>';
+                    }
+                } else {
+                    html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } else if (!isSuccess) {
+                html += `<strong>❌ ${data}</strong>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML += html;
+        }
+        
+        async function fetchAPI(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+        
+        async function checkPacks() {
+            const result = await fetchAPI('/packs');
+            showResult('basicResults', '📦 卡包数据', result.data || result.error?.message, result.success);
+        }
+        
+        async function checkRooms() {
+            const result = await fetchAPI('/rooms');
+            showResult('basicResults', '💬 聊天室数据', result.data || result.error?.message, result.success);
+        }
+        
+        async function checkUser() {
+            const result = await fetchAPI('/auth/me');
+            showResult('userResults', '👤 当前用户', result.data || result.error?.message, result.success);
+        }
+        
+        async function checkUserPacks() {
+            const result = await fetchAPI('/users/packs');
+            showResult('userResults', '🎴 用户卡包', result.data || result.error?.message, result.success);
+        }
+        
+        async function checkUserWords() {
+            const result = await fetchAPI('/users/words');
+            showResult('userResults', '📚 用户单词', result.data?.items || result.error?.message, result.success);
+        }
+        
+        async function checkAll() {
+            document.getElementById('basicResults').innerHTML = '<p>检查中...</p>';
+            await checkPacks();
+            await checkRooms();
+            
+            // 生成摘要
+            const packsResult = await fetchAPI('/packs');
+            const roomsResult = await fetchAPI('/rooms');
+            
+            let summary = '<ul>';
+            summary += `<li>卡包: <span class="count">${packsResult.data?.length || 0}</span> 个</li>`;
+            summary += `<li>聊天室: <span class="count">${roomsResult.data?.length || 0}</span> 个</li>`;
+            summary += '</ul>';
+            
+            if ((packsResult.data?.length || 0) === 0 || (roomsResult.data?.length || 0) === 0) {
+                summary += '<div class="error" style="margin-top: 10px; padding: 10px;"><strong>⚠️ 需要运行 seed_data.sql 初始化数据！</strong></div>';
+            } else {
+                summary += '<div class="success" style="margin-top: 10px; padding: 10px;"><strong>✅ 基础数据正常！</strong></div>';
+            }
+            
+            document.getElementById('summary').innerHTML = summary;
+        }
+        
+        // 页面加载时自动检查
+        window.onload = () => {
+            checkAll();
+        };
+    </script>
+</body>
+</html>

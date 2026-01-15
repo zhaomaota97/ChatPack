@@ -1,37 +1,38 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store/useAppStore'
+import { useUserWords } from '@/hooks/useApp'
 import { StatItem } from '../common/StatItem'
 import { WordCard } from '../common/WordCard'
-import { RarityType } from '@/lib/types'
+import type { Rarity } from '@/lib/types.full'
 
 export function InventoryPage() {
-  const { inventory } = useAppStore()
+  const { userWords } = useAppStore()
   const [rarityFilter, setRarityFilter] = useState<string>('all')
   const [searchText, setSearchText] = useState('')
   const [favoriteOnly, setFavoriteOnly] = useState(false)
 
   const stats = useMemo(() => {
     return {
-      total: inventory.length,
-      rare: inventory.filter((w) => w.rarity === 'RARE').length,
-      epic: inventory.filter((w) => w.rarity === 'EPIC').length,
-      legendary: inventory.filter((w) => w.rarity === 'LEGENDARY').length,
+      total: userWords.length,
+      rare: userWords.filter((w) => w.rarity === 'RARE').length,
+      epic: userWords.filter((w) => w.rarity === 'EPIC').length,
+      legendary: userWords.filter((w) => w.rarity === 'LEGENDARY').length,
     }
-  }, [inventory])
+  }, [userWords])
 
   const filteredWords = useMemo(() => {
-    return inventory.filter((w) => {
+    return userWords.filter((w) => {
       const matchesRarity = rarityFilter === 'all' || w.rarity === rarityFilter
       const matchesSearch =
         w.word.toLowerCase().includes(searchText.toLowerCase()) ||
-        w.meaning.includes(searchText)
-      const matchesFavorite = !favoriteOnly || w.favorite
+        w.definition.includes(searchText)
+      const matchesFavorite = !favoriteOnly || w.isFavorite
 
       return matchesRarity && matchesSearch && matchesFavorite
     })
-  }, [inventory, rarityFilter, searchText, favoriteOnly])
+  }, [userWords, rarityFilter, searchText, favoriteOnly])
 
   return (
     <div className="h-full">

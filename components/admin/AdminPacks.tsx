@@ -1,12 +1,31 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { adminApi } from '@/lib/api'
+import type { Pack } from '@/lib/types.full'
+
 export function AdminPacks() {
-  const packs = [
-    { name: '普通卡包', config: '混合', count: 5, opened: 3456 },
-    { name: '稀有卡包', config: '100% 稀有', count: 5, opened: 876 },
-    { name: '史诗卡包', config: '100% 史诗', count: 5, opened: 234 },
-    { name: '传说卡包', config: '100% 传说', count: 5, opened: 56 },
-  ]
+  const [packs, setPacks] = useState<Pack[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadPacks = async () => {
+      setLoading(true)
+      try {
+        const result = await adminApi.packs.getAll()
+        if (result.success && result.data) {
+          console.log('加载卡包数据:', result.data)
+          setPacks(result.data)
+        }
+      } catch (error) {
+        console.error('加载卡包失败:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPacks()
+  }, [])
 
   return (
     <div>
@@ -21,21 +40,30 @@ export function AdminPacks() {
         </button>
       </div>
 
+      {loading && (
+        <div className="text-center py-8 text-gray-500">加载中...</div>
+      )}
+
+      {!loading && packs.length === 0 && (
+        <div className="text-center py-8 text-gray-500">暂无卡包数据</div>
+      )}
+
+      {!loading && packs.length > 0 && (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-        {packs.map((pack, index) => (
-          <div key={index} className="border border-gray-300 p-4">
+        {packs.map((pack) => (
+          <div key={pack.id} className="border border-gray-300 p-4">
             <h3 className="mb-2">{pack.name}</h3>
-            <p className="mb-1">稀有度配置: {pack.config}</p>
+            <p className="mb-1">稀有度配置: {pack.rarityWeights ? '自定义' : '默认'}</p>
             <p className="mb-1">
-              卡片数量: <strong>{pack.count}</strong>
+              卡片数量: <strong>{pack.cardCount}</strong>
             </p>
             <p className="mb-1">
-              总开包数: <strong>{pack.opened}</strong>
+              总开包数: <strong>-</strong>
             </p>
             <p className="mb-2">
               状态:{' '}
               <label>
-                <input type="checkbox" defaultChecked className="mr-1" /> 启用
+                <input type="checkbox" checked={pack.isActive} readOnly className="mr-1" /> 启用
               </label>
             </p>
             <button
@@ -59,6 +87,7 @@ export function AdminPacks() {
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

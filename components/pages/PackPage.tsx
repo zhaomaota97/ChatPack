@@ -2,53 +2,53 @@
 
 import { useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
-import { mockWords } from '@/lib/mockData'
+import { useOpenPack } from '@/hooks/useApp'
 import { RarityBadge } from '../common/RarityBadge'
-import { RarityType } from '@/lib/types'
+import type { Word, Rarity } from '@/lib/types.full'
 
 export function PackPage() {
-  const { totalPacks, incrementTotalPacks, addToInventory } = useAppStore()
+  const { user, userPacks, availablePacks } = useAppStore()
+  const { openPack } = useOpenPack()
   const [showResult, setShowResult] = useState(false)
-  const [openedCards, setOpenedCards] = useState<any[]>([])
-  const [inviteCode, setInviteCode] = useState('')
+  const [openedCards, setOpenedCards] = useState<Array<Word & { isNew: boolean }>>([])
+  const [isOpening, setIsOpening] = useState(false)
 
-  const openPack = (packType: string) => {
-    const count = 5
-    const results = []
-
-    for (let i = 0; i < count; i++) {
-      let rarity: RarityType
-      if (packType === 'common') {
-        const r = Math.random()
-        rarity =
-          r < 0.6
-            ? 'COMMON'
-            : r < 0.9
-            ? 'RARE'
-            : r < 0.98
-            ? 'EPIC'
-            : 'LEGENDARY'
-      } else {
-        rarity = packType.toUpperCase() as RarityType
+  const handleOpenPack = async (packId: string) => {
+    setIsOpening(true)
+    try {
+      const result = await openPack(packId)
+      if (result) {
+        setOpenedCards(result.words)
+        setShowResult(true)
       }
-
-      const filtered = mockWords.filter((w) => w.rarity === rarity)
-      const word = filtered[Math.floor(Math.random() * filtered.length)] || mockWords[0]
-      results.push(word)
-      addToInventory(word)
+    } catch (error: any) {
+      alert(error?.error?.message || '开包失败，请重试')
+    } finally {
+      setIsOpening(false)
     }
-
-    incrementTotalPacks()
-    setOpenedCards(results)
-    setShowResult(true)
   }
 
-  const handleClaimInvite = () => {
-    if (!inviteCode.trim()) {
-      alert('请输入邀请码')
-      return
+  // 获取用户拥有的卡包数量
+  const getPackCount = (packId: string) => {
+    const userPack = userPacks.find(p => p.packId === packId)
+    return userPack?.count || 0
+  }
+
+  // 显示稀有度描述
+  const getRarityDescription = (pack: any) => {
+    if (pack.packType === 'SPECIAL' && pack.rarityType) {
+      const rarityNames: Record<Rarity, string> = {
+        COMMON: '普通',
+        RARE: '稀有',
+        EPIC: '史诗',
+        LEGENDARY: '传说'
+      }
+      return `100% ${rarityNames[pack.rarityType]}稀有度`
+    } else if (pack.packType === 'NORMAL' && pack.rarityWeights) {
+      const weights = pack.rarityWeights
+      return `概率: 普通${weights.COMMON}% 稀有${weights.RARE}% 史诗${weights.EPIC}% 传说${weights.LEGENDARY}%`
     }
-    alert(`使用邀请码 ${inviteCode} 领取卡包成功！获得普通卡包 x1`)
+    return '未知配置'
   }
 
   return (
@@ -56,106 +56,65 @@ export function PackPage() {
       <h1 className="text-xl mb-4 border-b-2 border-gray-800 pb-1">🎴 卡包商店</h1>
       <p className="mb-4">打开卡包获得单词卡片，不会重复获得已有单词</p>
 
-      <h2 className="text-base my-4">领取卡包</h2>
       <div className="mb-5 p-4 border border-gray-300 bg-gray-50">
-        <p className="mb-2.5">输入邀请码或完成任务领取卡包</p>
-        <input
-          type="text"
-          value={inviteCode}
-          onChange={(e) => setInviteCode(e.target.value)}
-          placeholder="输入邀请码..."
-          className="w-[200px] px-2 py-1 mr-1"
-        />
-        <button onClick={handleClaimInvite} className="px-2.5 py-1 mx-0.5 cursor-pointer">
-          使用邀请码领取
-        </button>
-        <button
-          onClick={() => alert('每日签到成功！获得普通卡包 x1')}
-          className="px-2.5 py-1 mx-0.5 cursor-pointer ml-2.5"
-        >
-          每日签到领取 (普通卡包 x1)
-        </button>
-        <button
-          onClick={() => alert('领取新手礼包成功！获得普通卡包 x3')}
-          className="px-2.5 py-1 mx-0.5 cursor-pointer ml-2.5"
-        >
-          新手礼包 (普通卡包 x3)
-        </button>
+        <p className="text-sm text-gray-600">
+          💡 提示：卡包需要管理员赠送。邀请码：<strong>{user?.inviteCode || '加载中...'}</strong>
+        </p>
       </div>
 
-      <h2 className="text-base my-4">我的卡包 (3个)</h2>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-        <div className="border border-gray-300 p-4">
-          <h3 className="mb-2.5">普通卡包</h3>
-          <p>包含5张单词卡</p>
-          <p className="text-xs">概率: 普通60% 稀有30% 史诗8% 传说2%</p>
-          <button
-            onClick={() => openPack('common')}
-            className="px-2.5 py-1 mx-0.5 cursor-pointer mt-2"
-          >
-            打开卡包
-          </button>
-        </div>
-        <div className="border border-gray-300 p-4">
-          <h3 className="mb-2.5">稀有卡包</h3>
-          <p>包含5张稀有单词</p>
-          <p className="text-xs">100%稀有稀有度</p>
-          <button
-            onClick={() => openPack('rare')}
-            className="px-2.5 py-1 mx-0.5 cursor-pointer mt-2"
-          >
-            打开卡包
-          </button>
-        </div>
-        <div className="border border-gray-300 p-4">
-          <h3 className="mb-2.5">史诗卡包</h3>
-          <p>包含5张史诗单词</p>
-          <p className="text-xs">100%史诗稀有度</p>
-          <button
-            onClick={() => openPack('epic')}
-            className="px-2.5 py-1 mx-0.5 cursor-pointer mt-2"
-          >
-            打开卡包
-          </button>
-        </div>
-        <div className="border border-gray-300 p-4">
-          <h3 className="mb-2.5">传说卡包</h3>
-          <p>包含5张传说单词</p>
-          <p className="text-xs">100%传说稀有度</p>
-          <button
-            onClick={() => openPack('legendary')}
-            className="px-2.5 py-1 mx-0.5 cursor-pointer mt-2"
-          >
-            打开卡包
-          </button>
-        </div>
-      </div>
-
-      {showResult && (
-        <div className="mt-5 border-2 border-gray-800 p-4">
-          <h2 className="text-base mb-2.5">✨ 获得单词</h2>
-          <div className="grid grid-cols-5 gap-2.5 mt-2.5">
-            {openedCards.map((card, index) => (
-              <div key={index} className="border border-gray-600 p-2.5 text-center">
-                <RarityBadge rarity={card.rarity} />
-                <h3 className="my-2">{card.word}</h3>
-                <p className="text-xs">{card.meaning}</p>
+      <h2 className="text-base my-4">我的卡包</h2>
+      
+      {availablePacks.length === 0 ? (
+        <div className="text-gray-500 py-8 text-center">正在加载卡包...</div>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+          {availablePacks.map((pack) => {
+            const count = getPackCount(pack.id)
+            return (
+              <div key={pack.id} className="border border-gray-300 p-4">
+                <h3 className="mb-2.5 font-bold">{pack.name}</h3>
+                <p className="text-sm mb-2">{pack.description || `包含${pack.cardCount}张单词卡`}</p>
+                <p className="text-xs text-gray-600 mb-3">{getRarityDescription(pack)}</p>
+                <p className="text-sm mb-2">拥有: <strong>{count}个</strong></p>
+                <button
+                  onClick={() => handleOpenPack(pack.id)}
+                  disabled={count === 0 || isOpening}
+                  className={`px-2.5 py-1 cursor-pointer mt-2 w-full ${
+                    count === 0 || isOpening ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {isOpening ? '开包中...' : count > 0 ? '打开卡包' : '暂无卡包'}
+                </button>
               </div>
-            ))}
-          </div>
-          <button
-            onClick={() => setShowResult(false)}
-            className="px-2.5 py-1 mx-0.5 cursor-pointer mt-2.5"
-          >
-            关闭
-          </button>
+            )
+          })}
         </div>
       )}
 
-      <h2 className="text-base my-4">统计</h2>
-      <p>
-        累计开包数: <strong>{totalPacks}</strong>
-      </p>
+      {showResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl mb-4">✨ 获得单词</h2>
+            <div className="grid grid-cols-5 gap-2.5 mt-2.5">
+              {openedCards.map((card, index) => (
+                <div key={index} className="border border-gray-600 p-2.5 text-center">
+                  <RarityBadge rarity={card.rarity} />
+                  <h3 className="my-2 font-bold">{card.word}</h3>
+                  <p className="text-xs">{card.definition}</p>
+                  {card.isNew && <p className="text-xs text-green-600 mt-1">★ 新单词</p>}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowResult(false)}
+              className="px-4 py-2 cursor-pointer mt-4 w-full bg-gray-800 text-white"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

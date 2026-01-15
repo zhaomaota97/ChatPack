@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
-  const { activePage, setActivePage, setAdminMode } = useAppStore()
+  const { activePage, setActivePage, setAdminMode, user } = useAppStore()
 
   const menuItems = [
     { id: 'pack', label: '🎴 卡包', icon: '🎴' },
@@ -32,12 +32,14 @@ export function Sidebar() {
         </button>
       ))}
       <hr className="my-2.5" />
-      <button
-        onClick={() => setAdminMode(true)}
-        className="w-full p-2 cursor-pointer bg-red-400 text-white"
-      >
-        ⚙️ 后台管理
-      </button>
+      {user?.role === 'ADMIN' && (
+        <button
+          onClick={() => setAdminMode(true)}
+          className="w-full p-2 cursor-pointer bg-red-400 text-white"
+        >
+          ⚙️ 后台管理
+        </button>
+      )}
     </div>
   )
 }

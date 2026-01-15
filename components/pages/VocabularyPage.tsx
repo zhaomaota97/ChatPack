@@ -1,37 +1,49 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store/useAppStore'
-import { mockWords } from '@/lib/mockData'
+import { useUserWords } from '@/hooks/useApp'
+import { adminApi } from '@/lib/api'
 import { StatItem } from '../common/StatItem'
 import { WordCard } from '../common/WordCard'
-import { BookType } from '@/lib/types'
 
 export function VocabularyPage() {
-  const { inventory } = useAppStore()
+  const { userWords } = useAppStore()
   const [bookFilter, setBookFilter] = useState<string>('all')
   const [rarityFilter, setRarityFilter] = useState<string>('all')
   const [searchText, setSearchText] = useState('')
   const [unownedOnly, setUnownedOnly] = useState(false)
+  const [totalWords, setTotalWords] = useState(0)
 
-  const totalWords = 5000
-  const ownedWords = inventory.length
-  const progress = ((ownedWords / totalWords) * 100).toFixed(1)
+  useEffect(() => {
+    // 加载总词汇数
+    const loadTotalWords = async () => {
+      try {
+        const result = await adminApi.words.getAll()
+        if (result.success && result.data) {
+          setTotalWords(result.data.length)
+        }
+      } catch (error) {
+        console.error('加载总词汇数失败:', error)
+      }
+    }
+
+    loadTotalWords()
+  }, [])
+
+  const ownedWords = userWords.length
+  const progress = totalWords > 0 ? ((ownedWords / totalWords) * 100).toFixed(1) : '0'
 
   const filteredWords = useMemo(() => {
-    return mockWords.filter((w) => {
-      const isOwned = inventory.some((inv) => inv.word === w.word)
-      const matchesBook =
-        bookFilter === 'all' || w.books.includes(bookFilter as BookType)
+    return userWords.filter((w) => {
       const matchesRarity = rarityFilter === 'all' || w.rarity === rarityFilter
       const matchesSearch =
         w.word.toLowerCase().includes(searchText.toLowerCase()) ||
-        w.meaning.includes(searchText)
-      const matchesOwnership = !unownedOnly || !isOwned
+        w.definition.includes(searchText)
 
-      return matchesBook && matchesRarity && matchesSearch && matchesOwnership
+      return matchesRarity && matchesSearch
     })
-  }, [mockWords, inventory, bookFilter, rarityFilter, searchText, unownedOnly])
+  }, [userWords, rarityFilter, searchText])
 
   return (
     <div className="h-full">
@@ -98,10 +110,13 @@ export function VocabularyPage() {
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2.5">
-        {filteredWords.map((word, index) => {
-          const isOwned = inventory.some((inv) => inv.word === word.word)
-          return <WordCard key={index} word={word} isOwned={isOwned} />
-        })}
+        {filteredWords.length === 0 ? (
+          <div className="col-span-full text-center text-gray-500 py-8">暂无单词数据</div>
+        ) : (
+          filteredWords.map((word) => (
+            <WordCard key={word.userWordId} word={word} isOwned={true} />
+          ))
+        )}
       </div>
     </div>
   )

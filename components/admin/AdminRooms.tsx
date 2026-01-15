@@ -1,6 +1,32 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { adminApi } from '@/lib/api'
+import type { Room } from '@/lib/types.full'
+
 export function AdminRooms() {
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadRooms = async () => {
+      setLoading(true)
+      try {
+        const result = await adminApi.rooms.getAll()
+        if (result.success && result.data) {
+          console.log('加载聊天室数据:', result.data)
+          setRooms(result.data)
+        }
+      } catch (error) {
+        console.error('加载聊天室失败:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadRooms()
+  }, [])
+
   return (
     <div>
       <h2 className="text-base mb-4">💬 聊天室管理</h2>
@@ -14,6 +40,15 @@ export function AdminRooms() {
         </button>
       </div>
 
+      {loading && (
+        <div className="text-center py-8 text-gray-500">加载中...</div>
+      )}
+
+      {!loading && rooms.length === 0 && (
+        <div className="text-center py-8 text-gray-500">暂无聊天室数据</div>
+      )}
+
+      {!loading && rooms.length > 0 && (
       <table className="w-full border-collapse">
         <thead className="bg-gray-100">
           <tr>
@@ -26,14 +61,15 @@ export function AdminRooms() {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td className="border border-gray-300 p-2">🌱 小学乐园</td>
-            <td className="border border-gray-300 p-2">小学词汇</td>
-            <td className="border border-gray-300 p-2">适合小学水平</td>
-            <td className="border border-gray-300 p-2">45</td>
+          {rooms.map((room) => (
+          <tr key={room.id}>
+            <td className="border border-gray-300 p-2">{room.name}</td>
+            <td className="border border-gray-300 p-2">-</td>
+            <td className="border border-gray-300 p-2">{room.description || '-'}</td>
+            <td className="border border-gray-300 p-2">0</td>
             <td className="border border-gray-300 p-2">
               <label>
-                <input type="checkbox" defaultChecked className="mr-1" /> 启用
+                <input type="checkbox" checked={room.isActive} readOnly className="mr-1" /> 启用
               </label>
             </td>
             <td className="border border-gray-300 p-2">
@@ -57,39 +93,10 @@ export function AdminRooms() {
               </button>
             </td>
           </tr>
-          <tr>
-            <td className="border border-gray-300 p-2">🌿 初中世界</td>
-            <td className="border border-gray-300 p-2">小学+初中</td>
-            <td className="border border-gray-300 p-2">初中水平交流</td>
-            <td className="border border-gray-300 p-2">38</td>
-            <td className="border border-gray-300 p-2">
-              <label>
-                <input type="checkbox" defaultChecked className="mr-1" /> 启用
-              </label>
-            </td>
-            <td className="border border-gray-300 p-2">
-              <button
-                onClick={() => alert('编辑')}
-                className="px-2.5 py-1 mx-0.5 cursor-pointer"
-              >
-                编辑
-              </button>
-              <button
-                onClick={() => alert('配置单词书')}
-                className="px-2.5 py-1 mx-0.5 cursor-pointer"
-              >
-                配置单词书
-              </button>
-              <button
-                onClick={() => alert('删除')}
-                className="px-2.5 py-1 mx-0.5 cursor-pointer"
-              >
-                删除
-              </button>
-            </td>
-          </tr>
+          ))}
         </tbody>
       </table>
+      )}
     </div>
   )
 }
