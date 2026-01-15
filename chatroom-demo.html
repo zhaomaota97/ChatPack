@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatPack - 单词学习平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        :root {
+            --background: rgba(22, 28, 51, 1);
+            --primary: rgba(255, 204, 50, 1);
+            --card-bg: rgba(48, 56, 85, 0.7);
+        }
+        .glass-panel {
+            background: rgba(48, 56, 85, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes cardReveal {
+            0% { transform: scale(0.8) rotateY(0deg); opacity: 0; }
+            50% { transform: scale(1.1) rotateY(180deg); }
+            100% { transform: scale(1) rotateY(360deg); opacity: 1; }
+        }
+        .animate-fade-slide { animation: fadeSlideIn 0.4s ease-out; }
+        .animate-pulse-slow { animation: pulse 2s infinite; }
+        .animate-card-reveal { animation: cardReveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .nav-btn.active { background: rgba(255, 204, 50, 0.15); color: rgb(255, 204, 50); }
+        .shadow-glow { box-shadow: 0 0 20px rgba(255, 204, 50, 0.3); }
+    </style>
+</head>
+<body class="h-screen overflow-hidden" style="background: linear-gradient(135deg, #161c33 0%, #1a2238 50%, #161c33 100%)">
+
+    <!-- 主容器 -->
+    <div class="flex h-screen">
+        <!-- 侧边导航 -->
+        <div class="w-20 glass-panel flex flex-col items-center py-6 space-y-6 border-r border-white/10">
+            <div class="text-3xl mb-4 text-yellow-400">✦</div>
+            <button onclick="switchPage('gacha')" class="nav-btn w-12 h-12 rounded-xl flex items-center justify-center hover:bg-white/10 transition text-2xl" title="祈愿">✨</button>
+            <button onclick="switchPage('chat')" class="nav-btn w-12 h-12 rounded-xl flex items-center justify-center hover:bg-white/10 transition text-2xl" title="聊天">💬</button>
+            <button onclick="switchPage('inventory')" class="nav-btn w-12 h-12 rounded-xl flex items-center justify-center hover:bg-white/10 transition text-2xl" title="图鉴">📚</button>
+            <button onclick="switchPage('profile')" class="nav-btn w-12 h-12 rounded-xl flex items-center justify-center hover:bg-white/10 transition text-2xl mt-auto" title="用户">👤</button>
+        </div>      
+
+        <!-- 祈愿页面 -->
+        <div id="gachaPage" class="flex-1 relative hidden">
+            <!-- 背景 -->
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20"></div>
+            <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518066000714-58c45f1a2c0a?w=1600')] bg-cover opacity-30"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent"></div>
+            
+            <!-- 内容 -->
+            <div class="relative z-10 h-full flex flex-col">
+                <!-- 顶栏 -->
+                <div class="flex justify-between items-center px-10 py-6">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">✦</span>
+                        <h1 class="text-3xl font-bold text-white tracking-wider">神铸赋形</h1>
+                    </div>
+                    <div class="glass-panel px-5 py-2 rounded-full flex items-center gap-3">
+                        <span class="text-yellow-400 text-xl">✦</span>
+                        <span class="text-white font-bold" id="primoCount">16000</span>
+                    </div>
+                </div>
+
+                <!-- 祈愿区域 -->
+                <div class="flex-1 flex items-center justify-center" id="gachaContent">
+                    <div class="text-center">
+                        <div class="text-6xl font-bold text-white mb-8 drop-shadow-lg">概率 UP</div>
+                        <div class="flex gap-6 justify-center mb-8">
+                            <div class="w-32 h-48 glass-panel rounded-t-xl border-b-4 border-yellow-400"></div>
+                            <div class="w-32 h-48 glass-panel rounded-t-xl border-b-4 border-yellow-400"></div>
+                            <div class="w-32 h-48 glass-panel rounded-t-xl border-b-4 border-yellow-400"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 祈愿按钮 -->
+                <div class="flex gap-4 justify-center pb-10">
+                    <button onclick="doGacha(1)" class="glass-panel px-8 py-4 rounded-xl text-white font-bold hover:bg-white/20 transition flex items-center gap-2 shadow-glow">
+                        <span>祈愿 ×1</span>
+                        <span class="text-sm opacity-75">(160 ✦)</span>
+                    </button>
+                    <button onclick="doGacha(10)" class="glass-panel px-8 py-4 rounded-xl text-white font-bold hover:bg-white/20 transition flex items-center gap-2 shadow-glow">
+                        <span>祈愿 ×10</span>
+                        <span class="text-sm opacity-75">(1600 ✦)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天页面 -->
+        <div id="chatPage" class="flex-1 flex hidden">
+            <!-- 频道列表 -->
+            <div class="w-64 glass-panel flex flex-col border-r border-white/10">
+                <div class="h-16 flex items-center px-6 border-b border-white/10">
+                    <h2 class="text-white font-bold text-lg flex items-center gap-2">
+                        <span class="text-yellow-400">✦</span> 世界频道
+                    </h2>
+                </div>
+                <div class="flex-1 overflow-y-auto py-4 px-3 space-y-2">
+                    <div class="channel-item px-4 py-3 rounded-lg cursor-pointer hover:bg-white/5 transition text-gray-300 active bg-white/10 text-white" onclick="switchChannel(this, '蒙德酒馆')">🍻 蒙德酒馆</div>
+                    <div class="channel-item px-4 py-3 rounded-lg cursor-pointer hover:bg-white/5 transition text-gray-300" onclick="switchChannel(this, '璃月港务局')">⚓️ 璃月港务局</div>
+                    <div class="channel-item px-4 py-3 rounded-lg cursor-pointer hover:bg-white/5 transition text-gray-300" onclick="switchChannel(this, '鸣神大社')">⛩️ 鸣神大社</div>
+                    <div class="channel-item px-4 py-3 rounded-lg cursor-pointer hover:bg-white/5 transition text-gray-300" onclick="switchChannel(this, '教令院')">📚 教令院</div>
+                    <div class="channel-item px-4 py-3 rounded-lg cursor-pointer hover:bg-white/5 transition text-gray-300" onclick="switchChannel(this, '梅洛彼得堡')">⚙️ 梅洛彼得堡</div>
+                </div>
+                <div class="p-4 border-t border-white/10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full border-2 border-yellow-400" style="background: rgb(255,204,50)"></div>
+                        <div><div class="text-sm font-bold text-white">旅行者</div><div class="text-xs text-green-400">在线</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天区 -->
+            <div class="flex-1 flex flex-col">
+                <div class="h-16 glass-panel border-b border-white/10 px-6 flex items-center justify-between">
+                    <div><h3 class="text-white font-bold text-lg"># <span id="currentChannel">蒙德酒馆</span></h3><p class="text-xs text-gray-400">当前区域 142 名旅行者</p></div>
+                </div>
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-6"></div>
+                <div class="p-5 glass-panel border-t border-white/10">
+                    <div class="glass-panel rounded-2xl p-3 flex items-center gap-2">
+                        <input id="chatInput" type="text" placeholder="发送消息..." class="flex-1 bg-transparent outline-none text-white" onkeypress="if(event.key==='Enter')sendMessage()">
+                        <button onclick="sendMessage()" class="w-10 h-10 rounded-full flex items-center justify-center transition" style="background: linear-gradient(135deg, rgb(88,101,242), rgb(59,73,223))">➤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图鉴页面 -->
+        <div id="inventoryPage" class="flex-1 flex-col hidden">
+            <div class="h-16 glass-panel border-b border-white/10 px-6 flex items-center justify-between">
+                <h1 class="text-xl font-bold text-white">📚 角色图鉴</h1>
+                <div class="flex gap-3">
+                    <select id="rarityFilter" class="glass-panel px-3 py-1.5 rounded-lg text-sm text-white outline-none" onchange="filterInventory()">
+                        <option value="all">全部</option>
+                        <option value="5">5星</option>
+                        <option value="4">4星</option>
+                    </select>
+                    <input id="searchInput" type="text" placeholder="搜索..." class="glass-panel px-3 py-1.5 rounded-lg text-sm text-white outline-none" oninput="filterInventory()">
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="glass-panel p-4 rounded-xl text-center"><div class="text-2xl font-bold text-white" id="totalChars">0</div><div class="text-sm text-gray-400">总角色数</div></div>
+                    <div class="glass-panel p-4 rounded-xl text-center"><div class="text-2xl font-bold text-yellow-400" id="fiveStarCount">0</div><div class="text-sm text-gray-400">5星角色</div></div>
+                    <div class="glass-panel p-4 rounded-xl text-center"><div class="text-2xl font-bold text-purple-400" id="fourStarCount">0</div><div class="text-sm text-gray-400">4星角色</div></div>
+                    <div class="glass-panel p-4 rounded-xl text-center"><div class="text-2xl font-bold text-white" id="totalGachas">0</div><div class="text-sm text-gray-400">祈愿次数</div></div>
+                </div>
+                <div id="inventoryGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+            </div>
+        </div>
+
+        <!-- 个人中心 -->
+        <div id="profilePage" class="flex-1 flex-col hidden">
+            <div class="h-16 glass-panel border-b border-white/10 px-6 flex items-center"><h1 class="text-xl font-bold text-white">👤 个人中心</h1></div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="max-w-2xl mx-auto space-y-6">
+                    <div class="glass-panel rounded-2xl p-6 flex items-center gap-6">
+                        <div class="w-24 h-24 rounded-full border-4 border-yellow-400" style="background: rgb(255,204,50)"></div>
+                        <div class="flex-1"><h2 class="text-2xl font-bold text-white mb-2">旅行者</h2><div class="text-sm text-green-400 flex items-center gap-2"><span class="w-2 h-2 bg-green-400 rounded-full animate-pulse-slow"></span>在线</div><div class="text-sm text-gray-400 mt-2">UID: <span class="text-yellow-400">88888888</span></div></div>
+                    </div>
+                    <div class="glass-panel rounded-2xl p-6"><h3 class="font-bold text-white mb-4">📊 统计数据</h3><div class="grid grid-cols-2 gap-4"><div><div class="text-gray-400 text-sm">累计祈愿</div><div class="text-2xl font-bold text-white" id="profileGachas">0</div></div><div><div class="text-gray-400 text-sm">收集角色</div><div class="text-2xl font-bold text-white" id="profileChars">0</div></div><div><div class="text-gray-400 text-sm">发送消息</div><div class="text-2xl font-bold text-white">127</div></div><div><div class="text-gray-400 text-sm">收到鲜花</div><div class="text-2xl font-bold text-yellow-400">🌸 356</div></div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 数据
+        const CHARACTERS = [
+            {name:'流浪者',element:'anemo',rarity:5,avatar:'rgb(56,176,176)'},
+            {name:'雷电将军',element:'electro',rarity:5,avatar:'rgb(168,85,247)'},
+            {name:'纳西妲',element:'dendro',rarity:5,avatar:'rgb(132,204,22)'},
+            {name:'钟离',element:'geo',rarity:5,avatar:'rgb(234,179,8)'},
+            {name:'胡桃',element:'pyro',rarity:5,avatar:'rgb(239,68,68)'},
+            {name:'神里绫华',element:'cryo',rarity:5,avatar:'rgb(147,197,253)'},
+            {name:'夜兰',element:'hydro',rarity:5,avatar:'rgb(59,130,246)'},
+            {name:'班尼特',element:'pyro',rarity:4,avatar:'rgb(252,165,165)'},
+            {name:'行秋',element:'hydro',rarity:4,avatar:'rgb(147,197,253)'},
+            {name:'香菱',element:'pyro',rarity:4,avatar:'rgb(252,165,165)'},
+            {name:'菲谢尔',element:'electro',rarity:4,avatar:'rgb(216,180,254)'},
+            {name:'九条裟罗',element:'electro',rarity:4,avatar:'rgb(216,180,254)'}
+        ];
+        
+        const state = {
+            inventory: [],
+            messages: [
+                {user:'派蒙',text:'前面的区域，以后再来探索吧！',time:'10:00',avatar:'rgb(250,250,250)',rarity:5},
+                {user:'温迪',text:'这种天气，最适合去天使的馈赠喝一杯了~',time:'10:02',avatar:'rgb(56,176,176)',rarity:5},
+                {user:'冒险家',text:'有人要去烬寂海吗？我...我可以带路。',time:'10:05',avatar:'rgb(150,150,150)',rarity:4}
+            ],
+            primogems: 16000,
+            totalGachas: 0
+        };
+
+        // 切换页面
+        function switchPage(page) {
+            ['gachaPage','chatPage','inventoryPage','profilePage'].forEach(p => {
+                document.getElementById(p).classList.add('hidden');
+                document.getElementById(p).classList.remove('flex');
+            });
+            const el = document.getElementById(page+'Page');
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            event.target.closest('.nav-btn').classList.add('active');
+            
+            if(page === 'chat') renderMessages();
+            if(page === 'inventory') updateInventory();
+            if(page === 'profile') updateProfile();
+        }
+
+        // 祈愿
+        function doGacha(count) {
+            const cost = count * 160;
+            if(state.primogems < cost) { alert('原石不足！'); return; }
+            
+            state.primogems -= cost;
+            state.totalGachas += count;
+            document.getElementById('primoCount').textContent = state.primogems;
+            
+            const content = document.getElementById('gachaContent');
+            content.innerHTML = '<div class="text-center"><div class="text-6xl text-yellow-400 animate-pulse-slow">✦</div><div class="text-white text-2xl mt-4">祈愿中...</div></div>';
+            
+            setTimeout(() => {
+                const results = [];
+                for(let i=0; i<count; i++) {
+                    const is5Star = Math.random() < 0.05;
+                    const pool = CHARACTERS.filter(c => c.rarity === (is5Star ? 5 : 4));
+                    const char = pool[Math.floor(Math.random() * pool.length)];
+                    results.push(char);
+                    state.inventory.push(char);
+                }
+                results.sort((a,b) => b.rarity - a.rarity);
+                
+                let html = '<div class="grid grid-cols-5 gap-4 max-w-5xl">';
+                results.forEach((c,i) => {
+                    const borderColor = c.rarity === 5 ? 'border-yellow-400' : 'border-purple-400';
+                    html += `<div class="glass-panel ${borderColor} border-2 rounded-xl p-4 text-center animate-card-reveal" style="animation-delay:${i*100}ms"><div class="text-xs text-gray-400 mb-2">${c.element}</div><div class="font-bold text-white mb-2">${c.name}</div><div class="flex justify-center gap-0.5">${'⭐'.repeat(c.rarity)}</div></div>`;
+                });
+                html += '</div><button onclick="resetGacha()" class="mt-8 text-gray-400 hover:text-white">点击继续</button>';
+                content.innerHTML = html;
+            }, 2000);
+        }
+
+        function resetGacha() {
+            document.getElementById('gachaContent').innerHTML = '<div class="text-center"><div class="text-6xl font-bold text-white mb-8">概率 UP</div><div class="flex gap-6 justify-center mb-8"><div class="w-32 h-48 glass-panel rounded-t-xl border-b-4 border-yellow-400"></div><div class="w-32 h-48 glass-panel rounded-t-xl border-b-4 border-yellow-400"></div><div class="w-32 h-48 glass-panel rounded-t-xl border-b-4 border-yellow-400"></div></div></div>';
+        }
+
+        // 聊天
+        function switchChannel(el, name) {
+            document.querySelectorAll('.channel-item').forEach(c => c.classList.remove('active','bg-white/10','text-white'));
+            el.classList.add('active','bg-white/10','text-white');
+            document.getElementById('currentChannel').textContent = name;
+        }
+
+        function renderMessages() {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = state.messages.map(m => {
+                const borderColor = m.rarity === 5 ? 'border-yellow-400' : 'border-purple-400';
+                const textColor = m.rarity === 5 ? 'text-yellow-400' : 'text-purple-400';
+                return `<div class="flex gap-4 animate-fade-slide"><div class="w-10 h-10 rounded-full border-2 ${borderColor}" style="background:${m.avatar}"></div><div><div class="flex items-baseline gap-2 mb-1"><span class="font-bold ${textColor}">${m.user}</span><span class="text-xs text-gray-500">${m.time}</span></div><div class="glass-panel px-4 py-2 rounded-2xl rounded-tl-none text-white text-sm">${m.text}</div></div></div>`;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            if(!input.value.trim()) return;
+            const now = new Date();
+            state.messages.push({
+                user:'旅行者',
+                text:input.value,
+                time:`${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`,
+                avatar:'rgb(255,204,50)',
+                rarity:5
+            });
+            input.value = '';
+            renderMessages();
+        }
+
+        // 图鉴
+        function updateInventory() {
+            const counts = {total:state.inventory.length, five:0, four:0};
+            state.inventory.forEach(c => c.rarity===5 ? counts.five++ : counts.four++);
+            document.getElementById('totalChars').textContent = counts.total;
+            document.getElementById('fiveStarCount').textContent = counts.five;
+            document.getElementById('fourStarCount').textContent = counts.four;
+            document.getElementById('totalGachas').textContent = state.totalGachas;
+            filterInventory();
+        }
+
+        function filterInventory() {
+            const rarity = document.getElementById('rarityFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = state.inventory.filter(c => 
+                (rarity === 'all' || c.rarity == rarity) && c.name.toLowerCase().includes(search)
+            );
+            const grid = document.getElementById('inventoryGrid');
+            grid.innerHTML = filtered.map(c => {
+                const borderColor = c.rarity === 5 ? 'border-yellow-400' : 'border-purple-400';
+                return `<div class="glass-panel ${borderColor} border-2 rounded-xl p-4 text-center hover:scale-105 transition cursor-pointer"><div class="font-bold text-white mb-1">${c.name}</div><div class="text-xs text-gray-400">${c.element} · ${'⭐'.repeat(c.rarity)}</div></div>`;
+            }).join('');
+        }
+
+        // 个人中心
+        function updateProfile() {
+            document.getElementById('profileGachas').textContent = state.totalGachas;
+            document.getElementById('profileChars').textContent = state.inventory.length;
+        }
+
+        // 初始化
+        switchPage('gacha');
+    </script>
+</body>
+</html>

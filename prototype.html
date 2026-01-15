@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatPack - 原型设计</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: sans-serif; padding: 10px; }
+        .container { display: flex; gap: 10px; height: 98vh; }
+        
+        /* 导航 */
+        .nav { width: 150px; border: 1px solid #ccc; padding: 10px; }
+        .nav button { width: 100%; margin-bottom: 5px; padding: 8px; cursor: pointer; }
+        .nav button.active { background: #007bff; color: white; }
+        
+        /* 主区域 */
+        .main { flex: 1; border: 1px solid #ccc; padding: 10px; overflow-y: auto; height: 98vh; }
+        .page { display: none; }
+        .page.active { display: block; height: 100%; }
+        
+        /* 通用样式 */
+        h1 { font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px; }
+        h2 { font-size: 16px; margin: 15px 0 10px; }
+        button { padding: 5px 10px; margin: 2px; cursor: pointer; }
+        input, select, textarea { padding: 5px; margin: 2px; }
+        
+        /* 卡包 */
+        .pack-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+        .pack-item { border: 1px solid #ccc; padding: 15px; }
+        .pack-item h3 { margin-bottom: 10px; }
+        .pack-result { margin-top: 20px; border: 2px solid #333; padding: 15px; }
+        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+        .card { border: 1px solid #666; padding: 10px; text-align: center; }
+        
+        /* 聊天室 */
+        .chat-layout { display: flex; gap: 10px; height: calc(100% - 60px); }
+        .room-list { width: 200px; border: 1px solid #ccc; padding: 10px; overflow-y: auto; }
+        .room-item { padding: 8px; margin-bottom: 5px; cursor: pointer; border: 1px solid #ddd; }
+        .room-item.active { background: #007bff; color: white; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 10px; border: 1px solid #ccc; margin-bottom: 10px; }
+        .messages { flex: 1; border: 1px solid #ccc; padding: 10px; overflow-y: auto; margin-bottom: 10px; }
+        .message { margin-bottom: 15px; padding: 10px; border-left: 3px solid #007bff; }
+        .message-info { font-size: 12px; color: #666; margin-bottom: 5px; }
+        .message-actions { margin-top: 5px; }
+        .input-area { display: flex; gap: 5px; }
+        .input-area input { flex: 1; }
+        
+        /* 库存/词汇库 */
+        .filter-bar { margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-item { border: 1px solid #ccc; padding: 15px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; }
+        .stat-label { font-size: 12px; color: #666; }
+        .word-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .word-item { border: 1px solid #ccc; padding: 10px; text-align: center; cursor: pointer; }
+        .word-item:hover { background: #f0f0f0; }
+        .word-detail { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid #333; padding: 20px; min-width: 300px; box-shadow: 0 0 10px rgba(0,0,0,0.3); z-index: 1000; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+        .overlay.active { display: block; }
+        
+        /* 个人中心 */
+        .profile-section { margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; }
+        .user-info { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; }
+        .avatar { width: 80px; height: 80px; border: 2px solid #333; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+        
+        /* 标签 */
+        .badge { display: inline-block; padding: 2px 8px; font-size: 11px; border-radius: 3px; }
+        .badge-common { background: #ccc; }
+        .badge-rare { background: #4a90e2; color: white; }
+        .badge-epic { background: #9b59b6; color: white; }
+        .badge-legendary { background: #f39c12; color: white; }
+        .badge-new { background: #e74c3c; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <div class="nav">
+            <h3>ChatPack</h3>
+            <hr style="margin: 10px 0;">
+            <button onclick="showPage('pack')" class="active">🎴 卡包</button>
+            <button onclick="showPage('chat')">💬 聊天室</button>
+            <button onclick="showPage('inventory')">📦 我的单词</button>
+            <button onclick="showPage('vocabulary')">📚 词汇库</button>
+            <button onclick="showPage('notebook')">📖 生词本</button>
+            <button onclick="showPage('profile')">👤 个人中心</button>
+            <hr style="margin: 10px 0;">
+            <button onclick="showAdmin()" style="background: #ff6b6b; color: white;">⚙️ 后台管理</button>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main">
+            <!-- 1. 卡包页面 -->
+            <div id="packPage" class="page active">
+                <h1>🎴 卡包商店</h1>
+                <p>打开卡包获得单词卡片，不会重复获得已有单词</p>
+                
+                <h2>领取卡包</h2>
+                <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9;">
+                    <p style="margin-bottom: 10px;">输入邀请码或完成任务领取卡包</p>
+                    <input type="text" id="inviteCode" placeholder="输入邀请码..." style="width: 200px; margin-right: 5px;">
+                    <button onclick="claimWithInviteCode()">使用邀请码领取</button>
+                    <button onclick="claimDailyPack()" style="margin-left: 10px;">每日签到领取 (普通卡包 x1)</button>
+                    <button onclick="claimNewbiePack()" style="margin-left: 10px;">新手礼包 (普通卡包 x3)</button>
+                </div>
+                
+                <h2>我的卡包 (3个)</h2>
+                <div class="pack-list">
+                    <div class="pack-item">
+                        <h3>普通卡包</h3>
+                        <p>包含5张单词卡</p>
+                        <p><small>概率: 普通60% 稀有30% 史诗8% 传说2%</small></p>
+                        <button onclick="openPack('common')">打开卡包</button>
+                    </div>
+                    <div class="pack-item">
+                        <h3>稀有卡包</h3>
+                        <p>包含5张稀有单词</p>
+                        <p><small>100%稀有稀有度</small></p>
+                        <button onclick="openPack('rare')">打开卡包</button>
+                    </div>
+                    <div class="pack-item">
+                        <h3>史诗卡包</h3>
+                        <p>包含5张史诗单词</p>
+                        <p><small>100%史诗稀有度</small></p>
+                        <button onclick="openPack('epic')">打开卡包</button>
+                    </div>
+                    <div class="pack-item">
+                        <h3>传说卡包</h3>
+                        <p>包含5张传说单词</p>
+                        <p><small>100%传说稀有度</small></p>
+                        <button onclick="openPack('legendary')">打开卡包</button>
+                    </div>
+                </div>
+
+                <div id="packResult" class="pack-result" style="display:none;">
+                    <h2>✨ 获得单词</h2>
+                    <div id="cardGrid" class="card-grid"></div>
+                    <button onclick="document.getElementById('packResult').style.display='none'">关闭</button>
+                </div>
+
+                <h2>统计</h2>
+                <p>累计开包数: <strong id="totalPacks">0</strong></p>
+            </div>
+
+            <!-- 2. 聊天室页面 -->
+            <div id="chatPage" class="page">
+                <h1>💬 聊天室</h1>
+                <p>使用已收集的单词和符号进行交流</p>
+                
+                <div class="chat-layout">
+                    <div class="room-list">
+                        <h3>聊天室列表</h3>
+                        <div class="room-item active" onclick="switchRoom(this, '🌱 小学乐园')">🌱 小学乐园</div>
+                        <div class="room-item" onclick="switchRoom(this, '🌿 初中世界')">🌿 初中世界</div>
+                        <div class="room-item" onclick="switchRoom(this, '🌳 高中殿堂')">🌳 高中殿堂</div>
+                        <div class="room-item" onclick="switchRoom(this, '🎓 四级广场')">🎓 四级广场</div>
+                        <div class="room-item" onclick="switchRoom(this, '🏆 六级天地')">🏆 六级天地</div>
+                        <div class="room-item" onclick="switchRoom(this, '👑 考研领域')">👑 考研领域</div>
+                    </div>
+                    
+                    <div class="chat-area">
+                        <div class="chat-header">
+                            <strong id="currentRoom">🌱 小学乐园</strong>
+                            <span style="margin-left: 20px; color: #666;">在线: 142人</span>
+                        </div>
+                        
+                        <div class="messages" id="chatMessages"></div>
+                        
+                        <div class="input-area">
+                            <input type="text" id="chatInput" placeholder="输入消息... (只能使用已收集的单词和符号)" onkeypress="if(event.key==='Enter')sendMessage()">
+                            <button onclick="sendMessage()">发送</button>
+                        </div>
+                        
+                        <p style="margin-top: 5px; font-size: 12px; color: #666;">
+                            提示: 发送前会检查是否所有单词都已收集
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 我的单词 -->
+            <div id="inventoryPage" class="page">
+                <h1>📦 我的单词库存</h1>
+                <p>查看和管理已收集的单词</p>
+                
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="invTotal">0</div>
+                        <div class="stat-label">总单词数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="invRare">0</div>
+                        <div class="stat-label">稀有单词</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="invEpic">0</div>
+                        <div class="stat-label">史诗单词</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="invLegendary">0</div>
+                        <div class="stat-label">传说单词</div>
+                    </div>
+                </div>
+                
+                <div class="filter-bar">
+                    <label>稀有度: 
+                        <select id="invRarityFilter" onchange="filterInventory()">
+                            <option value="all">全部</option>
+                            <option value="COMMON">普通</option>
+                            <option value="RARE">稀有</option>
+                            <option value="EPIC">史诗</option>
+                            <option value="LEGENDARY">传说</option>
+                        </select>
+                    </label>
+                    <label style="margin-left: 10px;">搜索: 
+                        <input type="text" id="invSearch" placeholder="输入单词..." oninput="filterInventory()">
+                    </label>
+                    <label style="margin-left: 10px;">
+                        <input type="checkbox" id="invFavorite" onchange="filterInventory()"> 只看收藏
+                    </label>
+                </div>
+                
+                <div class="word-grid" id="inventoryGrid"></div>
+            </div>
+
+            <!-- 4. 词汇库 -->
+            <div id="vocabularyPage" class="page">
+                <h1>📚 词汇库</h1>
+                <p>浏览所有可收集的单词（包括未获得的）</p>
+                
+                <div class="filter-bar">
+                    <label>单词书: 
+                        <select id="vocabBookFilter" onchange="filterVocabulary()">
+                            <option value="all">全部</option>
+                            <option value="primary">小学词汇</option>
+                            <option value="middle">初中词汇</option>
+                            <option value="high">高中词汇</option>
+                            <option value="cet4">四级词汇</option>
+                            <option value="cet6">六级词汇</option>
+                            <option value="kaoyan">考研词汇</option>
+                        </select>
+                    </label>
+                    <label style="margin-left: 10px;">稀有度: 
+                        <select id="vocabRarityFilter" onchange="filterVocabulary()">
+                            <option value="all">全部</option>
+                            <option value="COMMON">普通</option>
+                            <option value="RARE">稀有</option>
+                            <option value="EPIC">史诗</option>
+                            <option value="LEGENDARY">传说</option>
+                        </select>
+                    </label>
+                    <label style="margin-left: 10px;">搜索: 
+                        <input type="text" id="vocabSearch" placeholder="输入单词..." oninput="filterVocabulary()">
+                    </label>
+                    <label style="margin-left: 10px;">
+                        <input type="checkbox" id="vocabUnowned" onchange="filterVocabulary()"> 只看未获得
+                    </label>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="vocabTotal">5000</div>
+                        <div class="stat-label">词汇库总数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="vocabOwned">0</div>
+                        <div class="stat-label">已收集</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="vocabProgress">0%</div>
+                        <div class="stat-label">收集进度</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="vocabFiltered">0</div>
+                        <div class="stat-label">当前筛选结果</div>
+                    </div>
+                </div>
+                
+                <div class="word-grid" id="vocabularyGrid"></div>
+            </div>
+
+            <!-- 5. 生词本 -->
+            <div id="notebookPage" class="page">
+                <h1>📖 生词本</h1>
+                <p>收藏的生词和学习笔记</p>
+                
+                <div class="filter-bar">
+                    <button onclick="alert('添加当前查看的单词到生词本')">➕ 添加生词</button>
+                    <label style="margin-left: 10px;">排序: 
+                        <select id="notebookSort" onchange="filterNotebook()">
+                            <option value="time">添加时间</option>
+                            <option value="alpha">字母顺序</option>
+                            <option value="rarity">稀有度</option>
+                        </select>
+                    </label>
+                    <label style="margin-left: 10px;">搜索: 
+                        <input type="text" id="notebookSearch" placeholder="搜索生词..." oninput="filterNotebook()">
+                    </label>
+                </div>
+                
+                <p style="margin: 15px 0;">生词总数: <strong id="notebookCount">0</strong></p>
+                
+                <div id="notebookList">
+                    <p style="color: #666;">暂无生词，在词汇库或我的单词中点击"加入生词本"</p>
+                </div>
+            </div>
+
+            <!-- 6. 搜索 -->
+            <div id="searchPage" class="page">
+                <h1>🔍 搜索单词</h1>
+                <p>从已收集的单词中快速查找</p>
+                
+                <div class="filter-bar">
+                    <label>搜索范围: 
+                        <select id="searchScope">
+                            <option value="inventory">我的单词</option>
+                            <option value="vocabulary">词汇库</option>
+                            <option value="both">全部</option>
+                        </select>
+                    </label>
+                    <label style="margin-left: 10px;">
+                        <input type="text" id="searchInput" placeholder="输入英文单词或中文释义..." style="width: 300px;">
+                    </label>
+                    <button onclick="performSearch()">搜索</button>
+                </div>
+                
+                <h2>搜索选项</h2>
+                <div style="margin-bottom: 15px;">
+                    <label><input type="checkbox" id="searchExact"> 精确匹配</label>
+                    <label style="margin-left: 10px;"><input type="checkbox" id="searchCaseSensitive"> 区分大小写</label>
+                    <label style="margin-left: 10px;"><input type="checkbox" id="searchMeaning"> 同时搜索释义</label>
+                </div>
+                
+                <div id="searchResults">
+                    <p style="color: #666;">在上方输入关键词开始搜索</p>
+                </div>
+            </div>
+
+            <!-- 6. 搜索 -->
+            <div id="searchPage" class="page">
+                <h1>🔍 搜索单词</h1>
+                <p>从已收集的单词中快速查找</p>
+                
+                <div class="filter-bar">
+                    <label>搜索范围: 
+                        <select id="searchScope">
+                            <option value="inventory">我的单词</option>
+                            <option value="vocabulary">词汇库</option>
+                            <option value="both">全部</option>
+                        </select>
+                    </label>
+                    <label style="margin-left: 10px;">
+                        <input type="text" id="searchInput" placeholder="输入英文单词或中文释义..." style="width: 300px;">
+                    </label>
+                    <button onclick="performSearch()">搜索</button>
+                </div>
+                
+                <h2>搜索选项</h2>
+                <div style="margin-bottom: 15px;">
+                    <label><input type="checkbox" id="searchExact"> 精确匹配</label>
+                    <label style="margin-left: 10px;"><input type="checkbox" id="searchCaseSensitive"> 区分大小写</label>
+                    <label style="margin-left: 10px;"><input type="checkbox" id="searchMeaning"> 同时搜索释义</label>
+                </div>
+                
+                <div id="searchResults">
+                    <p style="color: #666;">在上方输入关键词开始搜索</p>
+                </div>
+            </div>
+
+            <!-- 7. 个人中心 -->
+            <div id="profilePage" class="page">
+                <h1>👤 个人中心</h1>
+                
+                <div class="profile-section">
+                    <h2>用户信息</h2>
+                    <div class="user-info">
+                        <div class="avatar">旅</div>
+                        <div>
+                            <h3>旅行者</h3>
+                            <p>UID: 88888888</p>
+                            <p>邀请码: <strong>ABCD1234</strong></p>
+                            <p style="color: green;">● 在线</p>
+                        </div>
+                    </div>
+                    <button>编辑资料</button>
+                </div>
+                
+                <div class="profile-section">
+                    <h2>📊 统计数据</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="profilePacks">0</div>
+                            <div class="stat-label">累计开包数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="profileWords">0</div>
+                            <div class="stat-label">收集单词数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">127</div>
+                            <div class="stat-label">发送消息数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">356</div>
+                            <div class="stat-label">收到鲜花数</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-section">
+                    <h2>⚙️ 账号设置</h2>
+                    <p><label>昵称: <input type="text" value="旅行者"></label></p>
+                    <p><label>邮箱: <input type="email" value="traveler@example.com"></label></p>
+                    <p><button>保存修改</button></p>
+                </div>
+                
+                <div class="profile-section">
+                    <h2>🎁 邀请好友</h2>
+                    <p>分享你的邀请码，邀请好友加入！</p>
+                    <p>我的邀请码: <strong>ABCD1234</strong> <button onclick="alert('已复制到剪贴板')">复制</button></p>
+                    <p>已邀请: <strong>3</strong> 人</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 后台管理系统 (独立页面) -->
+    <div id="adminSystem" style="display: none;">
+        <div class="container">
+            <!-- 后台导航 -->
+            <div class="nav">
+                <h3 style="color: #ff6b6b;">后台管理</h3>
+                <hr style="margin: 10px 0;">
+                <button onclick="showAdminTab('dashboard')" id="adminDashboardBtn" class="active">📊 数据统计</button>
+                <button onclick="showAdminTab('words')" id="adminWordsBtn">📝 单词管理</button>
+                <button onclick="showAdminTab('wordbooks')" id="adminWordbooksBtn">📚 单词书管理</button>
+                <button onclick="showAdminTab('rooms')" id="adminRoomsBtn">💬 聊天室管理</button>
+                <button onclick="showAdminTab('users')" id="adminUsersBtn">👥 用户管理</button>
+                <button onclick="showAdminTab('packs')" id="adminPacksBtn">🎴 卡包管理</button>
+                <button onclick="showAdminTab('settings')" id="adminSettingsBtn">⚙️ 系统设置</button>
+                <hr style="margin: 10px 0;">
+                <button onclick="showUser()" style="background: #007bff; color: white;">← 返回前台</button>
+            </div>
+
+            <!-- 后台主区域 -->
+            <div class="main">
+            <!-- 7. 后台管理 -->
+                <!-- 数据统计仪表盘 -->
+                <div id="adminDashboard" class="admin-tab active">
+                    <h2>📊 数据统计仪表盘</h2>
+                    <div class="stats">
+                        <div class="stat-item"><div class="stat-value">1,234</div><div class="stat-label">总用户数</div></div>
+                        <div class="stat-item"><div class="stat-value">89</div><div class="stat-label">今日活跃</div></div>
+                        <div class="stat-item"><div class="stat-value">45</div><div class="stat-label">本周新增</div></div>
+                        <div class="stat-item"><div class="stat-value">3</div><div class="stat-label">封禁用户</div></div>
+                    </div>
+                    <div class="stats">
+                        <div class="stat-item"><div class="stat-value">5,000</div><div class="stat-label">单词总数</div></div>
+                        <div class="stat-item"><div class="stat-value">8,765</div><div class="stat-label">总开包数</div></div>
+                        <div class="stat-item"><div class="stat-value">23,456</div><div class="stat-label">消息总数</div></div>
+                        <div class="stat-item"><div class="stat-value">9,876</div><div class="stat-label">总鲜花数</div></div>
+                    </div>
+                    <h3>用户增长趋势</h3>
+                    <div style="border: 1px solid #ccc; padding: 20px; text-align: center; color: #999;">
+                        [图表占位：折线图 - 用户增长趋势]
+                    </div>
+                    <h3 style="margin-top: 20px;">单词稀有度分布</h3>
+                    <div style="border: 1px solid #ccc; padding: 20px; text-align: center; color: #999;">
+                        [图表占位：饼图 - 稀有度分布]
+                    </div>
+                </div>
+
+                <!-- 单词管理 -->
+                <div id="adminWords" class="admin-tab" style="display: none;">
+                    <h2>📝 单词管理</h2>
+                    <div style="margin-bottom: 15px;">
+                        <button onclick="alert('打开添加单词对话框')">➕ 添加单词</button>
+                        <button onclick="alert('打开批量导入对话框')" style="margin-left: 5px;">📥 批量导入</button>
+                        <button onclick="alert('下载模板')" style="margin-left: 5px;">📄 下载模板</button>
+                    </div>
+                    <div class="filter-bar">
+                        <input type="text" placeholder="搜索单词或释义..." style="width: 200px;">
+                        <select style="margin-left: 10px;">
+                            <option value="">全部稀有度</option>
+                            <option>COMMON</option>
+                            <option>RARE</option>
+                            <option>EPIC</option>
+                            <option>LEGENDARY</option>
+                        </select>
+                        <select style="margin-left: 10px;">
+                            <option value="">全部单词书</option>
+                            <option>小学词汇</option>
+                            <option>初中词汇</option>
+                            <option>高中词汇</option>
+                        </select>
+                        <button style="margin-left: 10px;">搜索</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <thead style="background: #f0f0f0;">
+                            <tr>
+                                <th style="border: 1px solid #ccc; padding: 8px;">单词</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">释义</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">音标</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">稀有度</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">所属单词书</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="border: 1px solid #ccc; padding: 8px;">hello</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">你好</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">/həˈləʊ/</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;"><span class="badge badge-common">COMMON</span></td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">小学词汇</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">
+                                    <button onclick="alert('编辑')">编辑</button>
+                                    <button onclick="alert('删除')">删除</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ccc; padding: 8px;">beautiful</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">美丽的</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">/ˈbjuːtɪfl/</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;"><span class="badge badge-rare">RARE</span></td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">初中词汇</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">
+                                    <button onclick="alert('编辑')">编辑</button>
+                                    <button onclick="alert('删除')">删除</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 15px;">显示 1-2 / 总共 5000 条 <button>上一页</button> <button>下一页</button></p>
+                </div>
+
+                <!-- 单词书管理 -->
+                <div id="adminWordbooks" class="admin-tab" style="display: none;">
+                    <h2>📚 单词书管理</h2>
+                    <div class="pack-list" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="pack-item">
+                            <h3>🌱 小学词汇</h3>
+                            <p>PRIMARY</p>
+                            <p>单词数: <strong>500</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('管理单词')">管理单词</button>
+                            <button onclick="alert('编辑')">编辑</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>🌿 初中词汇</h3>
+                            <p>MIDDLE</p>
+                            <p>单词数: <strong>800</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('管理单词')">管理单词</button>
+                            <button onclick="alert('编辑')">编辑</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>🌳 高中词汇</h3>
+                            <p>HIGH</p>
+                            <p>单词数: <strong>1200</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('管理单词')">管理单词</button>
+                            <button onclick="alert('编辑')">编辑</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>🎓 四级词汇</h3>
+                            <p>CET4</p>
+                            <p>单词数: <strong>1500</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('管理单词')">管理单词</button>
+                            <button onclick="alert('编辑')">编辑</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>🏆 六级词汇</h3>
+                            <p>CET6</p>
+                            <p>单词数: <strong>1800</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('管理单词')">管理单词</button>
+                            <button onclick="alert('编辑')">编辑</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>👑 考研词汇</h3>
+                            <p>POSTGRADUATE</p>
+                            <p>单词数: <strong>2000</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('管理单词')">管理单词</button>
+                            <button onclick="alert('编辑')">编辑</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 聊天室管理 -->
+                <div id="adminRooms" class="admin-tab" style="display: none;">
+                    <h2>💬 聊天室管理</h2>
+                    <div style="margin-bottom: 15px;">
+                        <button onclick="alert('创建聊天室')">➕ 创建聊天室</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="background: #f0f0f0;">
+                            <tr>
+                                <th style="border: 1px solid #ccc; padding: 8px;">名称</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">关联单词书</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">描述</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">在线人数</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">状态</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="border: 1px solid #ccc; padding: 8px;">🌱 小学乐园</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">小学词汇</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">适合小学水平</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">45</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;"><label><input type="checkbox" checked> 启用</label></td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">
+                                    <button onclick="alert('编辑')">编辑</button>
+                                    <button onclick="alert('配置单词书')">配置单词书</button>
+                                    <button onclick="alert('删除')">删除</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ccc; padding: 8px;">🌿 初中世界</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">小学+初中</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">初中水平交流</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">38</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;"><label><input type="checkbox" checked> 启用</label></td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">
+                                    <button onclick="alert('编辑')">编辑</button>
+                                    <button onclick="alert('配置单词书')">配置单词书</button>
+                                    <button onclick="alert('删除')">删除</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 用户管理 -->
+                <div id="adminUsers" class="admin-tab" style="display: none;">
+                    <h2>👥 用户管理</h2>
+                    <div class="filter-bar">
+                        <input type="text" placeholder="搜索用户名或昵称..." style="width: 200px;">
+                        <select style="margin-left: 10px;">
+                            <option value="">全部角色</option>
+                            <option>USER</option>
+                            <option>ADMIN</option>
+                        </select>
+                        <select style="margin-left: 10px;">
+                            <option value="">全部状态</option>
+                            <option>正常</option>
+                            <option>封禁</option>
+                        </select>
+                        <button style="margin-left: 10px;">搜索</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <thead style="background: #f0f0f0;">
+                            <tr>
+                                <th style="border: 1px solid #ccc; padding: 8px;">用户名</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">昵称</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">角色</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">状态</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">注册时间</th>
+                                <th style="border: 1px solid #ccc; padding: 8px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="border: 1px solid #ccc; padding: 8px;">traveler001</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">旅行者</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;"><span class="badge" style="background: #28a745; color: white;">USER</span></td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">正常</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">2026-01-01</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">
+                                    <button onclick="alert('查看详情')">详情</button>
+                                    <button onclick="alert('赠送卡包')">赠送</button>
+                                    <button onclick="alert('封禁')">封禁</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ccc; padding: 8px;">admin</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">管理员</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;"><span class="badge" style="background: #dc3545; color: white;">ADMIN</span></td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">正常</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">2025-12-01</td>
+                                <td style="border: 1px solid #ccc; padding: 8px;">
+                                    <button onclick="alert('查看详情')">详情</button>
+                                    <button disabled>赠送</button>
+                                    <button disabled>封禁</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 15px;">显示 1-2 / 总共 1234 条 <button>上一页</button> <button>下一页</button></p>
+                </div>
+
+                <!-- 卡包管理 -->
+                <div id="adminPacks" class="admin-tab" style="display: none;">
+                    <h2>🎴 卡包管理</h2>
+                    <div style="margin-bottom: 15px;">
+                        <button onclick="alert('创建卡包')">➕ 创建卡包</button>
+                    </div>
+                    <div class="pack-list">
+                        <div class="pack-item">
+                            <h3>普通卡包</h3>
+                            <p>稀有度配置: 混合</p>
+                            <p>卡片数量: <strong>5</strong></p>
+                            <p>总开包数: <strong>3,456</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('编辑')">编辑</button>
+                            <button onclick="alert('查看统计')">统计</button>
+                            <button onclick="alert('删除')">删除</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>稀有卡包</h3>
+                            <p>稀有度配置: 100% 稀有</p>
+                            <p>卡片数量: <strong>5</strong></p>
+                            <p>总开包数: <strong>876</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('编辑')">编辑</button>
+                            <button onclick="alert('查看统计')">统计</button>
+                            <button onclick="alert('删除')">删除</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>史诗卡包</h3>
+                            <p>稀有度配置: 100% 史诗</p>
+                            <p>卡片数量: <strong>5</strong></p>
+                            <p>总开包数: <strong>234</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('编辑')">编辑</button>
+                            <button onclick="alert('查看统计')">统计</button>
+                            <button onclick="alert('删除')">删除</button>
+                        </div>
+                        <div class="pack-item">
+                            <h3>传说卡包</h3>
+                            <p>稀有度配置: 100% 传说</p>
+                            <p>卡片数量: <strong>5</strong></p>
+                            <p>总开包数: <strong>56</strong></p>
+                            <p>状态: <label><input type="checkbox" checked> 启用</label></p>
+                            <button onclick="alert('编辑')">编辑</button>
+                            <button onclick="alert('查看统计')">统计</button>
+                            <button onclick="alert('删除')">删除</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统设置 -->
+                <div id="adminSettings" class="admin-tab" style="display: none;">
+                    <h2>⚙️ 系统设置</h2>
+                    
+                    <div class="profile-section">
+                        <h3>全局配置</h3>
+                        <p><label>网站名称: <input type="text" value="ChatPack"></label></p>
+                        <p><label>网站描述: <input type="text" value="单词学习游戏平台" style="width: 400px;"></label></p>
+                        <p><label>Logo URL: <input type="text" placeholder="https://..." style="width: 400px;"></label></p>
+                        <button>保存</button>
+                    </div>
+                    
+                    <div class="profile-section">
+                        <h3>功能开关</h3>
+                        <p><label><input type="checkbox" checked> 允许用户注册</label></p>
+                        <p><label><input type="checkbox" checked> 邀请码必填</label></p>
+                        <p><label><input type="checkbox" checked> 启用聊天室</label></p>
+                        <p><label><input type="checkbox" checked> 启用开包功能</label></p>
+                        <button>保存</button>
+                    </div>
+                    
+                    <div class="profile-section">
+                        <h3>系统参数</h3>
+                        <p><label>新用户默认卡包数量: <input type="number" value="3" style="width: 80px;"></label></p>
+                        <p><label>分页默认大小: <input type="number" value="20" style="width: 80px;"></label></p>
+                        <p><label>最大上传文件大小(MB): <input type="number" value="10" style="width: 80px;"></label></p>
+                        <button>保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="word-detail" id="wordDetail" style="display:none;">
+        <h2 id="detailWord">hello</h2>
+        <p><strong>音标:</strong> <span id="detailPhonetic">/həˈləʊ/</span></p>
+        <p><strong>释义:</strong> <span id="detailMeaning">你好；哈喽</span></p>
+        <p><strong>稀有度:</strong> <span id="detailRarity" class="badge">COMMON</span></p>
+        <p><strong>所属单词书:</strong> <span id="detailBooks">小学词汇</span></p>
+        <p><strong>例句:</strong></p>
+        <p id="detailExample" style="font-style: italic; color: #666;">Hello, how are you?</p>
+        <hr style="margin: 15px 0;">
+        <button onclick="toggleFavorite()">⭐ 加入生词本</button>
+        <button onclick="closeWordDetail()">关闭</button>
+    </div>
+
+    <script>
+        // ========== 数据模拟 ==========
+        const mockWords = [
+            { word: 'hello', meaning: '你好', phonetic: '/həˈləʊ/', rarity: 'COMMON', books: ['primary'], example: 'Hello, how are you?' },
+            { word: 'world', meaning: '世界', phonetic: '/wɜːld/', rarity: 'COMMON', books: ['primary'], example: 'Welcome to the world.' },
+            { word: 'beautiful', meaning: '美丽的', phonetic: '/ˈbjuːtɪfl/', rarity: 'RARE', books: ['middle'], example: 'What a beautiful day!' },
+            { word: 'extraordinary', meaning: '非凡的', phonetic: '/ɪkˈstrɔːdnri/', rarity: 'EPIC', books: ['high'], example: 'An extraordinary achievement.' },
+            { word: 'serendipity', meaning: '意外发现珍奇事物的本领', phonetic: '/ˌserənˈdɪpəti/', rarity: 'LEGENDARY', books: ['cet6'], example: 'Finding you was pure serendipity.' }
+        ];
+
+        const state = {
+            inventory: [],
+            notebook: [],
+            messages: [
+                { user: '张三', text: 'Hello everyone!', time: '10:00', rarity: 'RARE' },
+                { user: '李四', text: 'Good morning! How are you?', time: '10:02', rarity: 'COMMON' },
+                { user: '王五', text: 'Beautiful day today!', time: '10:05', rarity: 'EPIC' }
+            ],
+            totalPacks: 0,
+            currentRoom: '🌱 小学乐园'
+        };
+
+        // ========== 页面切换 ==========
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageName + 'Page').classList.add('active');
+            document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // 更新相关数据
+            if (pageName === 'chat') renderMessages();
+            if (pageName === 'inventory') updateInventory();
+            if (pageName === 'vocabulary') updateVocabulary();
+            if (pageName === 'notebook') updateNotebook();
+            if (pageName === 'profile') updateProfile();
+        }
+
+        // ========== 前后台切换 ==========
+        function showAdmin() {
+            document.getElementById('adminSystem').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+        }
+
+        function showUser() {
+            document.getElementById('adminSystem').style.display = 'none';
+            document.querySelector('body > .container').style.display = 'flex';
+        }
+
+        // ========== 卡包功能 ==========
+        function openPack(type) {
+            const counts = { common: 5, rare: 5, epic: 5, legendary: 5 };
+            const count = counts[type] || 5;
+            const results = [];
+            
+            for (let i = 0; i < count; i++) {
+                let rarity;
+                if (type === 'common') {
+                    const r = Math.random();
+                    rarity = r < 0.6 ? 'COMMON' : r < 0.9 ? 'RARE' : r < 0.98 ? 'EPIC' : 'LEGENDARY';
+                } else {
+                    rarity = type.toUpperCase();
+                }
+                
+                const filtered = mockWords.filter(w => w.rarity === rarity);
+                const word = filtered[Math.floor(Math.random() * filtered.length)] || mockWords[0];
+                results.push(word);
+                
+                if (!state.inventory.find(w => w.word === word.word)) {
+                    state.inventory.push({ ...word, favorite: false, obtainedAt: new Date() });
+                }
+            }
+            
+            state.totalPacks++;
+            document.getElementById('totalPacks').textContent = state.totalPacks;
+            
+            const grid = document.getElementById('cardGrid');
+            grid.innerHTML = results.map(w => `
+                <div class="card">
+                    <div class="badge badge-${w.rarity.toLowerCase()}">${w.rarity}</div>
+                    <h3>${w.word}</h3>
+                    <p style="font-size: 12px;">${w.meaning}</p>
+                </div>
+            `).join('');
+            
+            document.getElementById('packResult').style.display = 'block';
+        }
+
+        // ========== 聊天室功能 ==========
+        function switchRoom(el, roomName) {
+            document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
+            el.classList.add('active');
+            state.currentRoom = roomName;
+            document.getElementById('currentRoom').textContent = roomName;
+        }
+
+        function renderMessages() {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = state.messages.map(m => `
+                <div class="message">
+                    <div class="message-info">
+                        <strong>${m.user}</strong> 
+                        <span class="badge badge-${m.rarity.toLowerCase()}">${m.rarity}</span>
+                        <span style="margin-left: 10px; color: #999;">${m.time}</span>
+                    </div>
+                    <div>${m.text}</div>
+                    <div class="message-actions">
+                        <button onclick="alert('送花+1')">🌸 送花</button>
+                        <button onclick="alert('回复功能')">↩️ 回复</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            if (!input.value.trim()) return;
+            
+            const now = new Date();
+            state.messages.push({
+                user: '旅行者',
+                text: input.value,
+                time: `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`,
+                rarity: 'LEGENDARY'
+            });
+            input.value = '';
+            renderMessages();
+        }
+
+        // ========== 库存功能 ==========
+        function updateInventory() {
+            const counts = { total: state.inventory.length, rare: 0, epic: 0, legendary: 0 };
+            state.inventory.forEach(w => {
+                if (w.rarity === 'RARE') counts.rare++;
+                if (w.rarity === 'EPIC') counts.epic++;
+                if (w.rarity === 'LEGENDARY') counts.legendary++;
+            });
+            
+            document.getElementById('invTotal').textContent = counts.total;
+            document.getElementById('invRare').textContent = counts.rare;
+            document.getElementById('invEpic').textContent = counts.epic;
+            document.getElementById('invLegendary').textContent = counts.legendary;
+            
+            filterInventory();
+        }
+
+        function filterInventory() {
+            const rarity = document.getElementById('invRarityFilter').value;
+            const search = document.getElementById('invSearch').value.toLowerCase();
+            const favoriteOnly = document.getElementById('invFavorite').checked;
+            
+            let filtered = state.inventory.filter(w => 
+                (rarity === 'all' || w.rarity === rarity) &&
+                (w.word.includes(search) || w.meaning.includes(search)) &&
+                (!favoriteOnly || w.favorite)
+            );
+            
+            const grid = document.getElementById('inventoryGrid');
+            grid.innerHTML = filtered.map(w => `
+                <div class="word-item" onclick="showWordDetail('${w.word}', true)">
+                    <strong>${w.word}</strong>
+                    <div style="font-size: 12px; color: #666;">${w.meaning}</div>
+                    <div class="badge badge-${w.rarity.toLowerCase()}">${w.rarity}</div>
+                    ${w.favorite ? '<div style="color: orange;">⭐</div>' : ''}
+                </div>
+            `).join('');
+        }
+
+        // ========== 词汇库功能 ==========
+        function updateVocabulary() {
+            const owned = state.inventory.length;
+            const total = 5000;
+            const progress = ((owned / total) * 100).toFixed(1);
+            
+            document.getElementById('vocabTotal').textContent = total;
+            document.getElementById('vocabOwned').textContent = owned;
+            document.getElementById('vocabProgress').textContent = progress + '%';
+            
+            filterVocabulary();
+        }
+
+        function filterVocabulary() {
+            const book = document.getElementById('vocabBookFilter').value;
+            const rarity = document.getElementById('vocabRarityFilter').value;
+            const search = document.getElementById('vocabSearch').value.toLowerCase();
+            const unownedOnly = document.getElementById('vocabUnowned').checked;
+            
+            let filtered = mockWords.filter(w => {
+                const isOwned = state.inventory.some(inv => inv.word === w.word);
+                return (book === 'all' || w.books.includes(book)) &&
+                       (rarity === 'all' || w.rarity === rarity) &&
+                       (w.word.includes(search) || w.meaning.includes(search)) &&
+                       (!unownedOnly || !isOwned);
+            });
+            
+            document.getElementById('vocabFiltered').textContent = filtered.length;
+            
+            const grid = document.getElementById('vocabularyGrid');
+            grid.innerHTML = filtered.map(w => {
+                const isOwned = state.inventory.some(inv => inv.word === w.word);
+                return `
+                    <div class="word-item" onclick="showWordDetail('${w.word}', ${isOwned})">
+                        <strong>${w.word}</strong>
+                        <div style="font-size: 12px; color: #666;">${w.meaning}</div>
+                        <div class="badge badge-${w.rarity.toLowerCase()}">${w.rarity}</div>
+                        ${!isOwned ? '<div class="badge badge-new">未获得</div>' : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== 生词本功能 ==========
+        function updateNotebook() {
+            document.getElementById('notebookCount').textContent = state.notebook.length;
+            filterNotebook();
+        }
+
+        function filterNotebook() {
+            const search = document.getElementById('notebookSearch').value.toLowerCase();
+            const sort = document.getElementById('notebookSort').value;
+            
+            let filtered = state.notebook.filter(w => 
+                w.word.includes(search) || w.meaning.includes(search)
+            );
+            
+            if (sort === 'alpha') filtered.sort((a, b) => a.word.localeCompare(b.word));
+            if (sort === 'rarity') filtered.sort((a, b) => {
+                const order = { LEGENDARY: 0, EPIC: 1, RARE: 2, COMMON: 3 };
+                return order[a.rarity] - order[b.rarity];
+            });
+            
+            const list = document.getElementById('notebookList');
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="color: #666;">暂无生词</p>';
+            } else {
+                list.innerHTML = filtered.map(w => `
+                    <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+                        <h3>${w.word} <span class="badge badge-${w.rarity.toLowerCase()}">${w.rarity}</span></h3>
+                        <p>${w.meaning}</p>
+                        <p style="font-size: 12px; color: #666;">添加时间: ${w.addedAt ? new Date(w.addedAt).toLocaleString() : '未知'}</p>
+                        <button onclick="removeFromNotebook('${w.word}')">移除</button>
+                        <button onclick="showWordDetail('${w.word}', true)">查看详情</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function toggleFavorite() {
+            const word = document.getElementById('detailWord').textContent;
+            const invWord = state.inventory.find(w => w.word === word);
+            
+            if (invWord) {
+                invWord.favorite = !invWord.favorite;
+                
+                if (invWord.favorite && !state.notebook.some(w => w.word === word)) {
+                    state.notebook.push({ ...invWord, addedAt: new Date() });
+                }
+                
+                alert(invWord.favorite ? '已加入生词本' : '已从生词本移除');
+            } else {
+                alert('请先收集此单词');
+            }
+        }
+
+        function removeFromNotebook(word) {
+            state.notebook = state.notebook.filter(w => w.word !== word);
+            const invWord = state.inventory.find(w => w.word === word);
+            if (invWord) invWord.favorite = false;
+            updateNotebook();
+        }
+
+        // ========== 搜索功能 ==========
+        function performSearch() {
+            const scope = document.getElementById('searchScope').value;
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const exact = document.getElementById('searchExact').checked;
+            const caseSensitive = document.getElementById('searchCaseSensitive').checked;
+            const searchMeaning = document.getElementById('searchMeaning').checked;
+            
+            if (!query) {
+                document.getElementById('searchResults').innerHTML = '<p style="color: #666;">请输入搜索关键词</p>';
+                return;
+            }
+            
+            let results = [];
+            
+            if (scope === 'inventory' || scope === 'both') {
+                results = results.concat(state.inventory.filter(w => {
+                    const wordMatch = caseSensitive ? w.word.includes(query) : w.word.toLowerCase().includes(query);
+                    const meaningMatch = searchMeaning && w.meaning.includes(query);
+                    return exact ? (w.word === query) : (wordMatch || meaningMatch);
+                }).map(w => ({ ...w, source: 'inventory' })));
+            }
+            
+            if (scope === 'vocabulary' || scope === 'both') {
+                results = results.concat(mockWords.filter(w => {
+                    const isOwned = state.inventory.some(inv => inv.word === w.word);
+                    if (scope === 'both' && isOwned) return false; // 避免重复
+                    
+                    const wordMatch = caseSensitive ? w.word.includes(query) : w.word.toLowerCase().includes(query);
+                    const meaningMatch = searchMeaning && w.meaning.includes(query);
+                    return exact ? (w.word === query) : (wordMatch || meaningMatch);
+                }).map(w => ({ ...w, source: 'vocabulary' })));
+            }
+            
+            const container = document.getElementById('searchResults');
+            if (results.length === 0) {
+                container.innerHTML = '<p style="color: #666;">未找到匹配的单词</p>';
+            } else {
+                container.innerHTML = `
+                    <h2>搜索结果 (${results.length})</h2>
+                    <div class="word-grid">
+                        ${results.map(w => `
+                            <div class="word-item" onclick="showWordDetail('${w.word}', ${w.source === 'inventory'})">
+                                <strong>${w.word}</strong>
+                                <div style="font-size: 12px; color: #666;">${w.meaning}</div>
+                                <div class="badge badge-${w.rarity.toLowerCase()}">${w.rarity}</div>
+                                <div style="font-size: 10px; color: #999;">${w.source === 'inventory' ? '已收集' : '未收集'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        // ========== 搜索功能 ==========
+        function performSearch() {
+            const scope = document.getElementById('searchScope').value;
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const exact = document.getElementById('searchExact').checked;
+            const caseSensitive = document.getElementById('searchCaseSensitive').checked;
+            const searchMeaning = document.getElementById('searchMeaning').checked;
+            
+            if (!query) {
+                document.getElementById('searchResults').innerHTML = '<p style="color: #666;">请输入搜索关键词</p>';
+                return;
+            }
+            
+            let results = [];
+            
+            if (scope === 'inventory' || scope === 'both') {
+                results = results.concat(state.inventory.filter(w => {
+                    const wordMatch = caseSensitive ? w.word.includes(query) : w.word.toLowerCase().includes(query);
+                    const meaningMatch = searchMeaning && w.meaning.includes(query);
+                    return exact ? (w.word === query) : (wordMatch || meaningMatch);
+                }).map(w => ({ ...w, source: 'inventory' })));
+            }
+            
+            if (scope === 'vocabulary' || scope === 'both') {
+                results = results.concat(mockWords.filter(w => {
+                    const isOwned = state.inventory.some(inv => inv.word === w.word);
+                    if (scope === 'both' && isOwned) return false; // 避免重复
+                    
+                    const wordMatch = caseSensitive ? w.word.includes(query) : w.word.toLowerCase().includes(query);
+                    const meaningMatch = searchMeaning && w.meaning.includes(query);
+                    return exact ? (w.word === query) : (wordMatch || meaningMatch);
+                }).map(w => ({ ...w, source: 'vocabulary' })));
+            }
+            
+            const container = document.getElementById('searchResults');
+            if (results.length === 0) {
+                container.innerHTML = '<p style="color: #666;">未找到匹配的单词</p>';
+            } else {
+                container.innerHTML = `
+                    <h2>搜索结果 (${results.length})</h2>
+                    <div class="word-grid">
+                        ${results.map(w => `
+                            <div class="word-item" onclick="showWordDetail('${w.word}', ${w.source === 'inventory'})">
+                                <strong>${w.word}</strong>
+                                <div style="font-size: 12px; color: #666;">${w.meaning}</div>
+                                <div class="badge badge-${w.rarity.toLowerCase()}">${w.rarity}</div>
+                                <div style="font-size: 10px; color: #999;">${w.source === 'inventory' ? '已收集' : '未收集'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        // ========== 卡包领取功能 ==========
+        function claimWithInviteCode() {
+            const code = document.getElementById('inviteCode').value.trim();
+            if (!code) {
+                alert('请输入邀请码');
+                return;
+            }
+            alert(`使用邀请码 ${code} 领取卡包成功！获得普通卡包 x1`);
+        }
+
+        function claimDailyPack() {
+            alert('每日签到成功！获得普通卡包 x1');
+        }
+
+        function claimNewbiePack() {
+            alert('领取新手礼包成功！获得普通卡包 x3');
+        }
+
+        // ========== 后台管理功能 ==========
+        function showAdminTab(tabName) {
+            // 隐藏所有标签页
+            document.querySelectorAll('.admin-tab').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            // 显示选中的标签页
+            const targetTab = document.getElementById('admin' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+            if (targetTab) {
+                targetTab.style.display = 'block';
+            }
+            // 更新按钮状态
+            document.querySelectorAll('#adminSystem .nav button').forEach(btn => btn.classList.remove('active'));
+            const targetBtn = document.getElementById('admin' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Btn');
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+        }
+
+        // ========== 单词详情 ==========
+        function showWordDetail(word, isOwned) {
+            const wordData = mockWords.find(w => w.word === word) || state.inventory.find(w => w.word === word);
+            if (!wordData) return;
+            
+            document.getElementById('detailWord').textContent = wordData.word;
+            document.getElementById('detailPhonetic').textContent = wordData.phonetic;
+            document.getElementById('detailMeaning').textContent = wordData.meaning;
+            document.getElementById('detailRarity').textContent = wordData.rarity;
+            document.getElementById('detailRarity').className = 'badge badge-' + wordData.rarity.toLowerCase();
+            document.getElementById('detailBooks').textContent = wordData.books ? wordData.books.join(', ') : '未知';
+            document.getElementById('detailExample').textContent = wordData.example || '暂无例句';
+            
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('wordDetail').style.display = 'block';
+        }
+
+        function closeWordDetail() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('wordDetail').style.display = 'none';
+        }
+
+        // ========== 个人中心 ==========
+        function updateProfile() {
+            document.getElementById('profilePacks').textContent = state.totalPacks;
+            document.getElementById('profileWords').textContent = state.inventory.length;
+        }
+
+        // 初始化
+        renderMessages();
+    </script>
+</body>
+</html>
